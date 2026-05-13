@@ -36,7 +36,7 @@ export function updateAI(npc, delta, gameState) {
   applyNPCForce(npc, moveVec, intention.power);
 }
 
-function calculateIntention(npc, { entities, viruses, nodes, powerups }) {
+function calculateIntention(npc, { entities, viruses, nodes, powerups, demoBounds }) {
   const npcPos = npc.body.position;
   const visionRange = CONFIG.visionRange;
   const fleeRange = 600;
@@ -66,10 +66,20 @@ function calculateIntention(npc, { entities, viruses, nodes, powerups }) {
 
   // 0. WALL AVOIDANCE (Built into intention)
   const margin = 250;
-  if (npcPos.x < margin) wallAvoidance.x += Math.pow((margin - npcPos.x) / margin, 1.5);
-  if (npcPos.x > CONFIG.worldSize - margin) wallAvoidance.x -= Math.pow((npcPos.x - (CONFIG.worldSize - margin)) / margin, 1.5);
-  if (npcPos.y < margin) wallAvoidance.y += Math.pow((margin - npcPos.y) / margin, 1.5);
-  if (npcPos.y > CONFIG.worldSize - margin) wallAvoidance.y -= Math.pow((npcPos.y - (CONFIG.worldSize - margin)) / margin, 1.5);
+  const effectiveBounds = demoBounds || { minX: 0, maxX: CONFIG.worldSize, minY: 0, maxY: CONFIG.worldSize };
+  
+  if (npcPos.x < effectiveBounds.minX + margin) {
+    wallAvoidance.x += Math.pow((effectiveBounds.minX + margin - npcPos.x) / margin, 1.5);
+  }
+  if (npcPos.x > effectiveBounds.maxX - margin) {
+    wallAvoidance.x -= Math.pow((npcPos.x - (effectiveBounds.maxX - margin)) / margin, 1.5);
+  }
+  if (npcPos.y < effectiveBounds.minY + margin) {
+    wallAvoidance.y += Math.pow((effectiveBounds.minY + margin - npcPos.y) / margin, 1.5);
+  }
+  if (npcPos.y > effectiveBounds.maxY - margin) {
+    wallAvoidance.y -= Math.pow((npcPos.y - (effectiveBounds.maxY - margin)) / margin, 1.5);
+  }
 
   // 1. POWERUPS (Avoid Legendary)
   powerups.forEach(p => {
