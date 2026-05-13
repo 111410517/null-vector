@@ -654,18 +654,6 @@ function update(delta) {
   // Always update physics if not paused/gameover (includes menu state)
   const shouldUpdatePhysics = !isGameOver && !isPaused;
 
-  let demoBounds = null;
-  if (!isGameRunning) {
-    // Restrict demo bots to a smaller box around center
-    const size = 1500;
-    demoBounds = {
-      minX: CONFIG.worldSize / 2 - size,
-      maxX: CONFIG.worldSize / 2 + size,
-      minY: CONFIG.worldSize / 2 - size,
-      maxY: CONFIG.worldSize / 2 + size
-    };
-  }
-
   if (shouldUpdatePhysics) {
     // Apply timeScale (Flash Step bullet time)
     const scaledDeltaMS = Math.min(16.6, delta.elapsedMS) * timeScale;
@@ -707,7 +695,7 @@ function update(delta) {
           ent.spawnDelay -= delta.elapsedMS;
           Matter.Body.setVelocity(ent.body, { x: 0, y: 0 });
         } else {
-          updateAI(ent, delta, { entities, viruses, nodes, powerups, isGameOver, demoBounds });
+          updateAI(ent, delta, { entities, viruses, nodes, powerups, isGameOver });
         }
       }
 
