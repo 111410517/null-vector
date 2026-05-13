@@ -32,7 +32,7 @@ export function updateAI(npc, delta, gameState) {
     y: Math.sin(npc.currentAngle)
   };
   
-  npc.isBoosting = intention.isBoosting;
+  npc.isBoosting = npc.noBoost ? false : (npc.isAlwaysBoosting ? true : intention.isBoosting);
   applyNPCForce(npc, moveVec, intention.power);
 }
 
@@ -182,6 +182,36 @@ function calculateIntention(npc, { entities, viruses, nodes, powerups }) {
     finalDir = { x: Math.cos(wanderTime + npc.wobbleOffset), y: Math.sin(wanderTime + npc.wobbleOffset) };
   }
 
+  // DEMO OPPORTUNIST LOGIC
+  if (npc.isOpportunist) {
+    // 1. Prioritize special nodes (virus fragments)
+    let bestSpecialNode = null;
+    let maxSpecialScore = -1;
+    nodes.forEach(node => {
+      if (!node.isSpecial) return;
+      const d = Matter.Vector.magnitude(Matter.Vector.sub(node.body.position, npcPos));
+      if (d < 1500) {
+        const score = 100 / (d + 10);
+        if (score > maxSpecialScore) { maxSpecialScore = score; bestSpecialNode = node; }
+      }
+    });
+    if (bestSpecialNode) {
+      const dir = Matter.Vector.normalise(Matter.Vector.sub(bestSpecialNode.body.position, npcPos));
+      return { dir, power: 1.0, isBoosting: false };
+    }
+
+    // 2. Target the scripted NPC (NPC 1)
+    const targetNPC = entities.find(e => e.isDemoScripted);
+    if (targetNPC && !targetNPC.isDestroyed) {
+      const d = Matter.Vector.magnitude(Matter.Vector.sub(targetNPC.body.position, npcPos));
+      if (d < visionRange) {
+        // Hunt it if we are larger or close to it
+        const dir = Matter.Vector.normalise(Matter.Vector.sub(targetNPC.body.position, npcPos));
+        return { dir, power: 1.0, isBoosting: false };
+      }
+    }
+  }
+
   return { 
     dir: Matter.Vector.normalise(finalDir), 
     power: 1.0, 
@@ -193,6 +223,8 @@ function applyNPCForce(npc, moveVec, multiplier) {
   const speedBonus = npc.isSmart ? 0.95 : 0.85;
   const efficiencyMult = npc.efficiency || 1.0;
   const baseForce = CONFIG.baseForce * Math.pow(npc.mass / 30, 0.8) * speedBonus * efficiencyMult; 
+  
+  // Boosting force
   const boostMult = npc.isBoosting ? 1.5 : 1.0; 
   Matter.Body.applyForce(npc.body, npc.body.position, Matter.Vector.mult(moveVec, baseForce * multiplier * boostMult));
 }

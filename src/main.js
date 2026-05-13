@@ -132,19 +132,22 @@ async function init() {
   gameContainer.mask = mask;
   app.stage.addChild(mask); // Mask needs to be on stage to work correctly in some PIXI versions
 
-  // Initial NPCs (Demo background: spawn 3 specific NPCs)
-  for (let i = 0; i < 3; i++) {
+  // Initial NPCs (Demo background: spawn 4 specific NPCs)
+  for (let i = 0; i < 4; i++) {
     const rx = CONFIG.worldSize / 2 + (Math.random() - 0.5) * 1500;
     const ry = CONFIG.worldSize / 2 + (Math.random() - 0.5) * 1500;
     if (i === 0) {
-      // NPC 1: 700 mass, aims for viruses
-      spawnNPC(i, rx, ry, 700, true);
+      // NPC 1: Hunter (Hits viruses)
+      spawnNPC(i, rx, ry, 700, true, false, true);
     } else if (i === 1) {
-      // NPC 2: 500 mass, avoids viruses
-      spawnNPC(i, rx, ry, 500, false, true);
+      // NPC 2: Opportunist (Hunts NPC 1)
+      spawnNPC(i, rx, ry, 500, false, true, true, true);
+    } else if (i === 2) {
+      // NPC 3: Speedster (Zips around)
+      spawnNPC(i, rx, ry, 25, false, false, false, false, true);
     } else {
-      // NPC 3: Normal
-      spawnNPC(i, rx, ry);
+      // NPC 4: Normal
+      spawnNPC(i, rx, ry, null, false, false, true);
     }
   }
 
@@ -204,11 +207,15 @@ function clearWorld() {
   player = null;
 }
 
-function spawnNPC(index, customX, customY, customMass, isDemoScripted, avoidViruses) {
-  const isSmart = isDemoScripted || (index < (CONFIG.npcCount * 0.5)); // Scripted are always smart
+function spawnNPC(index, customX, customY, customMass, isDemoScripted, avoidViruses, noBoost, isOpportunist, isAlwaysBoosting) {
+  const isSmart = isDemoScripted || isOpportunist || isAlwaysBoosting || (index < (CONFIG.npcCount * 0.5)); 
   let name;
   if (isDemoScripted) {
     name = "NULL_VECTOR_DEMO";
+  } else if (isOpportunist) {
+    name = "OPPORTUNIST_BOT";
+  } else if (isAlwaysBoosting) {
+    name = "SPEEDSTER_BOT";
   } else if (isSmart) {
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()";
     name = Array.from({length: 8}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
@@ -224,7 +231,10 @@ function spawnNPC(index, customX, customY, customMass, isDemoScripted, avoidViru
   ent.isSmart = isSmart;
   ent.isDemoScripted = isDemoScripted;
   ent.avoidViruses = avoidViruses;
-  ent.protectionTime = customMass ? 0 : 180; // No protection for demo NPCs
+  ent.noBoost = noBoost;
+  ent.isOpportunist = isOpportunist;
+  ent.isAlwaysBoosting = isAlwaysBoosting;
+  ent.protectionTime = customMass ? 0 : 180; 
   ent.spawnDelay = customMass ? 0 : 1000;
   ent.efficiency = Math.random() > 0.5 ? 0.67 : 1.0;
 }
@@ -1817,17 +1827,19 @@ window.returnToMenu = () => {
   isGameOver = false;
   isPaused = false;
   
-  // 清理世界並重新生成原有的演示背景物件 (3個特定 NPC)
+  // 清理世界並重新生成原有的演示背景物件 (4個特定 NPC)
   clearWorld();
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 4; i++) {
     const rx = CONFIG.worldSize / 2 + (Math.random() - 0.5) * 1500;
     const ry = CONFIG.worldSize / 2 + (Math.random() - 0.5) * 1500;
     if (i === 0) {
-      spawnNPC(i, rx, ry, 700, true);
+      spawnNPC(i, rx, ry, 700, true, false, true);
     } else if (i === 1) {
-      spawnNPC(i, rx, ry, 500, false, true);
+      spawnNPC(i, rx, ry, 500, false, true, true, true);
+    } else if (i === 2) {
+      spawnNPC(i, rx, ry, 25, false, false, false, false, true);
     } else {
-      spawnNPC(i, rx, ry);
+      spawnNPC(i, rx, ry, null, false, false, true);
     }
   }
   for (let i = 0; i < CONFIG.nodeCount; i++) spawnNode();
