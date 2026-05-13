@@ -73,43 +73,20 @@
     <!-- Start Menu -->
     <div id="start-menu">
       <div class="menu-container">
-        <div class="menu-content glass">
-          <!-- Tab 內容區域 -->
-
-          <!-- === 首頁 Tab === -->
-          <div id="tab-home" class="tab-page active">
-            <h1 class="menu-title">NULL VECTOR</h1>
-            <p class="menu-subtitle">SURVIVE. GROW. WIN.</p>
-
-            <!-- 等級 & 金幣 -->
-            <div class="progress-bar-row">
-              <div class="level-display">
-                <span id="level-label" class="level-badge">Lv.1</span>
-                <div class="xp-bar-container">
-                  <div id="xp-bar-fill" class="xp-bar-fill" style="width: 0%"></div>
-                </div>
-                <span id="xp-percent" class="xp-percent">0%</span>
-              </div>
-              <div class="gold-display">
-                <span class="gold-icon">🪙</span>
-                <span id="gold-amount">0</span>
-              </div>
-            </div>
-
-            <input type="text" id="player-name-input" maxlength="12" placeholder="輸入玩家名稱" value="PLAYER">
-
-            <button id="start-btn" class="primary-btn">開始遊戲</button>
-            <button id="install-pwa-btn" class="secondary-btn" style="display: none;">安裝應用程式</button>
-
+        <!-- 左側輔助面板 (紀錄/技能/皮膚) -->
+        <div class="secondary-panel glass">
+          <!-- === 紀錄 Tab === -->
+          <div id="tab-history" class="tab-page active">
+            <h2 class="tab-page-title">歷史紀錄</h2>
             <div class="history-panel">
-              <div class="history-label">歷史紀錄 (獲勝時間)</div>
+              <div class="history-label">近期獲勝時間</div>
               <div id="history-list"></div>
             </div>
           </div>
 
           <!-- === 技能 Tab === -->
           <div id="tab-skills" class="tab-page">
-            <h2 class="tab-page-title">技 能</h2>
+            <h2 class="tab-page-title">技能強化</h2>
             <div class="skill-points-display">
               技能點剩餘：<span id="skill-points-count">0</span>
             </div>
@@ -160,39 +137,63 @@
 
           <!-- === 皮膚 Tab === -->
           <div id="tab-skins" class="tab-page">
-            <h2 class="tab-page-title">皮 膚 商 店</h2>
+            <h2 class="tab-page-title">皮膚商店</h2>
             <div class="skin-gold-display">
               <span class="gold-icon">🪙</span>
               <span id="skin-gold-amount">0</span>
             </div>
-
             <div class="skin-grid">
               <div class="skin-card active">
                 <div class="skin-preview default-skin"></div>
                 <div class="skin-card-name">幽靈白</div>
                 <div class="skin-card-status">使用中</div>
               </div>
-              <!-- 更多皮膚在此擴充 -->
             </div>
           </div>
 
-          <!-- Tab 底部導航列 -->
+          <!-- 左側 Tab 導航 -->
           <div class="tab-bar">
-            <button class="tab-btn active" data-tab="home">
-              <span class="tab-icon">🏠</span>
-              <span class="tab-label">首頁</span>
+            <button class="tab-btn active" data-tab="history">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+              <span class="tab-label">紀錄</span>
             </button>
             <button class="tab-btn" data-tab="skills">
-              <span class="tab-icon">⚡</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
               <span class="tab-label">技能</span>
             </button>
             <button class="tab-btn" data-tab="skins">
-              <span class="tab-icon">🎨</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 00-10 10 10 10 0 0010 10 10 10 0 0010-10A10 10 0 0012 2z"></path><path d="M12 8a4 4 0 100 8 4 4 0 000-8z"></path></svg>
               <span class="tab-label">皮膚</span>
             </button>
           </div>
         </div>
 
+        <!-- 中間主面板 (啟動/等級/金幣) -->
+        <div class="main-panel glass">
+          <h1 class="menu-title">NULL VECTOR</h1>
+          <p class="menu-subtitle">SURVIVE. GROW. WIN.</p>
+
+          <div class="progress-bar-row">
+            <div class="level-display">
+              <span id="level-label" class="level-badge">Lv.1</span>
+              <div class="xp-bar-container">
+                <div id="xp-bar-fill" class="xp-bar-fill" style="width: 0%"></div>
+              </div>
+              <span id="xp-percent" class="xp-percent">0%</span>
+            </div>
+            <div class="gold-display">
+              <span class="gold-icon">🪙</span>
+              <span id="gold-amount">0</span>
+            </div>
+          </div>
+
+          <input type="text" id="player-name-input" maxlength="12" placeholder="輸入玩家名稱" value="PLAYER">
+
+          <button id="start-btn" class="primary-btn">開始遊戲</button>
+          <button id="install-pwa-btn" class="secondary-btn" style="display: none;">安裝應用程式</button>
+        </div>
+
+        <!-- 右側指南面板 -->
         <div class="guide-panel glass">
           <div class="guide-section">
             <h3>核心操作</h3>

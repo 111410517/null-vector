@@ -416,36 +416,106 @@ canvas {
   padding: 40px;
 }
 
-.victory-title {
-  font-size: 5rem;
+.menu-title {
+  font-size: 3.5rem;
   font-weight: 900;
-  letter-spacing: 20px;
+  letter-spacing: 15px;
+  margin-bottom: 5px;
   color: #FFFFFF;
-  margin-bottom: 10px;
-  text-shadow: 0 0 30px rgba(255, 255, 255, 0.5);
+  text-shadow: 0 0 40px rgba(255, 255, 255, 0.2);
 }
 
-#victory-time-label {
-  font-size: 1.2rem;
+.victory-title {
+  font-size: 3rem;
+  font-weight: 900;
+  letter-spacing: 10px;
+}
+
+.menu-subtitle {
+  font-size: 0.9rem;
   font-weight: 700;
   letter-spacing: 5px;
   color: #00FFBB;
-  margin-bottom: 60px;
+  margin-bottom: 40px;
   opacity: 0.8;
 }
 
 .menu-container {
   display: flex;
-  gap: 30px;
-  max-width: 1000px;
-  width: 95%;
+  gap: 20px;
+  max-width: 1200px;
+  width: 98%;
   align-items: stretch;
+  justify-content: center;
+}
+
+.secondary-panel, .main-panel, .guide-panel {
+  height: 780px; /* 固定高度 */
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+.secondary-panel {
+  flex: 1;
+  padding: 40px 30px 20px 30px;
+}
+
+.main-panel {
+  flex: 1.2;
+  padding: 60px;
+  text-align: center;
+}
+
+.guide-panel {
+  flex: 0.9;
+  padding: 40px;
+  overflow-y: auto;
+}
+
+.secondary-panel .tab-page {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 10px;
+}
+
+/* 自定義捲軸 */
+.secondary-panel .tab-page::-webkit-scrollbar,
+.guide-panel::-webkit-scrollbar {
+  width: 4px;
+}
+.secondary-panel .tab-page::-webkit-scrollbar-thumb,
+.guide-panel::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
 }
 
 .menu-content {
-  padding: 60px;
+  padding: 60px 60px 20px 60px;
   text-align: center;
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 750px; /* 固定高度以防止切換時跳動 */
+  box-sizing: border-box;
+}
+
+.tab-page {
+  display: none;
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-bottom: 20px;
+  animation: tabFadeIn 0.3s ease-out;
+}
+
+.tab-page::-webkit-scrollbar {
+  width: 4px;
+}
+.tab-page::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
 }
 
 .guide-panel {
@@ -512,28 +582,47 @@ canvas {
 .primary-btn:hover { transform: scale(1.02); background: #EEEEEE; }
 .secondary-btn:hover { background: rgba(255, 255, 255, 0.2); }
 
+/* --- History Panel (Sidebar) --- */
 .history-panel {
-  margin-top: 50px;
-  text-align: left;
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .history-label {
-  font-size: 0.6rem;
+  font-size: 0.7rem;
+  font-weight: 800;
   letter-spacing: 2px;
-  opacity: 0.4;
-  margin-bottom: 15px;
+  color: rgba(255, 255, 255, 0.4);
+  text-transform: uppercase;
+  margin-bottom: 5px;
+  padding-left: 5px;
 }
 
 .history-item {
   display: flex;
   justify-content: space-between;
-  padding: 10px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  align-items: center;
+  padding: 14px 18px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
   font-size: 0.8rem;
-  font-weight: 800;
+  font-weight: 700;
+  transition: all 0.2s;
 }
 
-.history-item .time { color: #00FFBB; }
+.history-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.history-item .time {
+  color: #00FFBB;
+  font-family: monospace;
+  font-size: 0.9rem;
+}
 
 /* Guide Panel Details */
 .guide-section h3 {
@@ -854,13 +943,9 @@ canvas {
    ========================================================== */
 
 /* --- Tab System --- */
-.tab-page {
-  display: none;
-  animation: tabFadeIn 0.3s ease-out;
-}
-
 .tab-page.active {
-  display: block;
+  display: flex;
+  flex-direction: column;
 }
 
 @keyframes tabFadeIn {
@@ -871,48 +956,53 @@ canvas {
 .tab-bar {
   display: flex;
   justify-content: center;
-  gap: 5px;
-  margin-top: 30px;
-  padding-top: 20px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  gap: 10px;
+  margin-top: 20px;
+  padding-top: 15px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .tab-btn {
   flex: 1;
-  padding: 12px 8px;
+  padding: 10px 5px;
   background: transparent;
   border: none;
-  color: rgba(255, 255, 255, 0.4);
-  font-family: 'Outfit', sans-serif;
-  font-size: 0.75rem;
-  font-weight: 800;
-  letter-spacing: 2px;
+  color: rgba(255, 255, 255, 0.3);
   cursor: pointer;
   transition: all 0.3s;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   border-radius: 12px;
 }
 
+.tab-btn svg {
+  width: 20px;
+  height: 20px;
+  transition: all 0.3s;
+}
+
 .tab-btn:hover {
-  color: rgba(255, 255, 255, 0.7);
-  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .tab-btn.active {
-  color: #FFFFFF;
-  background: rgba(255, 255, 255, 0.1);
+  color: #00FFBB;
+  background: rgba(0, 255, 187, 0.05);
 }
 
-.tab-icon {
-  font-size: 1.2rem;
+.tab-btn.active svg {
+  transform: scale(1.1);
+  filter: drop-shadow(0 0 5px rgba(0, 255, 187, 0.5));
 }
 
 .tab-label {
-  font-size: 0.65rem;
+  font-size: 0.6rem;
+  font-weight: 800;
   letter-spacing: 1px;
+  text-transform: uppercase;
 }
 
 .tab-page-title {
