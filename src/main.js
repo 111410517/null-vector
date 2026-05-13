@@ -132,11 +132,16 @@ async function init() {
   gameContainer.mask = mask;
   app.stage.addChild(mask); // Mask needs to be on stage to work correctly in some PIXI versions
 
-  // Initial NPCs (Demo background: spawn near center)
-  for (let i = 0; i < 6; i++) {
-    const rx = CONFIG.worldSize / 2 + (Math.random() - 0.5) * 2000;
-    const ry = CONFIG.worldSize / 2 + (Math.random() - 0.5) * 2000;
-    spawnNPC(i, rx, ry);
+  // Initial NPCs (Demo background: spawn 3 NPCs)
+  for (let i = 0; i < 3; i++) {
+    const rx = CONFIG.worldSize / 2 + (Math.random() - 0.5) * 1500;
+    const ry = CONFIG.worldSize / 2 + (Math.random() - 0.5) * 1500;
+    if (i === 0) {
+      // Scripted NPC: 700 mass, aims for viruses
+      spawnNPC(i, rx, ry, 700, true);
+    } else {
+      spawnNPC(i, rx, ry);
+    }
   }
 
   // Create Nodes
@@ -195,10 +200,12 @@ function clearWorld() {
   player = null;
 }
 
-function spawnNPC(index, customX, customY) {
-  const isSmart = index < (CONFIG.npcCount * 0.5); // 50% Smart AI
+function spawnNPC(index, customX, customY, customMass, isDemoScripted) {
+  const isSmart = isDemoScripted || (index < (CONFIG.npcCount * 0.5)); // Scripted are always smart
   let name;
-  if (isSmart) {
+  if (isDemoScripted) {
+    name = "NULL_VECTOR_DEMO";
+  } else if (isSmart) {
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()";
     name = Array.from({length: 8}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
   } else {
@@ -208,8 +215,10 @@ function spawnNPC(index, customX, customY) {
   const x = customX !== undefined ? customX : Math.random() * CONFIG.worldSize;
   const y = customY !== undefined ? customY : Math.random() * CONFIG.worldSize;
   
-  const ent = createEntity(x, y, CONFIG.initialMass, name, false);
+  const initialMass = customMass || CONFIG.initialMass;
+  const ent = createEntity(x, y, initialMass, name, false);
   ent.isSmart = isSmart;
+  ent.isDemoScripted = isDemoScripted;
   ent.protectionTime = 180;
   ent.spawnDelay = 1000;
   ent.efficiency = Math.random() > 0.5 ? 0.67 : 1.0;
@@ -627,21 +636,22 @@ function createGrid() {
 }
 
 function update(delta) {
-  const isUpdatingPhysics = isGameRunning && !isGameOver && !isPaused;
+  // Always update physics if not paused/gameover (includes menu state)
+  const shouldUpdatePhysics = !isGameOver && !isPaused;
 
-  if (isUpdatingPhysics) {
+  if (shouldUpdatePhysics) {
     // Apply timeScale (Flash Step bullet time)
     const scaledDeltaMS = Math.min(16.6, delta.elapsedMS) * timeScale;
     Matter.Engine.update(engine, scaledDeltaMS);
 
-    // Update skill cooldown
-    if (skillState) {
+    // Update skill cooldown (only if game is actually running)
+    if (isGameRunning && skillState) {
       updateSkillCooldown(skillState, delta.elapsedMS); 
       updateSkillEffects(delta);
       updateCooldownUI();
     }
 
-    handleInputs();
+    if (isGameRunning) handleInputs();
   }
 
   // SYNC GRAPHICS & LOGIC (Always run for menu background)
@@ -1802,12 +1812,16 @@ window.returnToMenu = () => {
   isGameOver = false;
   isPaused = false;
   
-  // 清理世界並重新生成原有的演示背景物件 (集中在中心區域)
+  // 清理世界並重新生成原有的演示背景物件 (3個 NPC)
   clearWorld();
-  for (let i = 0; i < 6; i++) {
-    const rx = CONFIG.worldSize / 2 + (Math.random() - 0.5) * 2000;
-    const ry = CONFIG.worldSize / 2 + (Math.random() - 0.5) * 2000;
-    spawnNPC(i, rx, ry);
+  for (let i = 0; i < 3; i++) {
+    const rx = CONFIG.worldSize / 2 + (Math.random() - 0.5) * 1500;
+    const ry = CONFIG.worldSize / 2 + (Math.random() - 0.5) * 1500;
+    if (i === 0) {
+      spawnNPC(i, rx, ry, 700, true);
+    } else {
+      spawnNPC(i, rx, ry);
+    }
   }
   for (let i = 0; i < CONFIG.nodeCount; i++) spawnNode();
   for (let i = 0; i < CONFIG.virusCount; i++) spawnVirus();

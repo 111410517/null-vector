@@ -41,6 +41,20 @@ function calculateIntention(npc, { entities, viruses, nodes, powerups }) {
   const visionRange = CONFIG.visionRange;
   const fleeRange = 600;
 
+  // DEMO SCRIPTED LOGIC
+  if (npc.isDemoScripted) {
+    let nearestVirus = null;
+    let minDist = Infinity;
+    viruses.forEach(v => {
+      const d = Matter.Vector.magnitude(Matter.Vector.sub(v.body.position, npcPos));
+      if (d < minDist) { minDist = d; nearestVirus = v; }
+    });
+    if (nearestVirus) {
+      const dir = Matter.Vector.normalise(Matter.Vector.sub(nearestVirus.body.position, npcPos));
+      return { dir, power: 1.0, isBoosting: true };
+    }
+  }
+
   let fleeForce = { x: 0, y: 0 };
   let huntForce = { x: 0, y: 0 };
   let forageForce = { x: 0, y: 0 };
