@@ -489,6 +489,15 @@ body.skill-channeling #app {
   z-index: 5000;
 }
 
+#start-menu.animate-in {
+  animation: menuFadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes menuFadeIn {
+  0% { opacity: 0; transform: scale(1.1); backdrop-filter: blur(0px); }
+  100% { opacity: 1; transform: scale(1); backdrop-filter: blur(8px); }
+}
+
 #screen-effects-overlay {
   position: fixed;
   top: 0; left: 0; width: 100vw; height: 100vh;

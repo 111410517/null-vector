@@ -153,9 +153,57 @@ async function init() {
   });
 
   updateLoadingProgress(100);
-  setTimeout(hideLoadingScreen, 500);
+  setTimeout(() => {
+    hideLoadingScreen();
+    const startMenu = document.getElementById('start-menu');
+    startMenu.classList.add('animate-in');
+  }, 500);
 
   setInterval(updateLeaderboard, 1000);
+}
+
+/**
+ * 清理遊戲世界中的所有動態物件
+ */
+function clearWorld() {
+  // 1. Remove all entities, nodes, viruses and powerups
+  entities.forEach(ent => {
+    entityLayer.removeChild(ent.container);
+    if (ent.indicator) app.stage.removeChild(ent.indicator);
+    Matter.World.remove(world, ent.body);
+  });
+  nodes.forEach(node => {
+    nodeLayer.removeChild(node.graphics);
+    Matter.World.remove(world, node.body);
+  });
+  viruses.forEach(v => {
+    virusLayer.removeChild(v.graphics);
+    Matter.World.remove(world, v.body);
+  });
+  powerups.forEach(p => {
+    powerupLayer.removeChild(p.container);
+    Matter.World.remove(world, p.body);
+  });
+
+  // 2. Clear arrays
+  entities = [];
+  nodes = [];
+  viruses = [];
+  powerups = [];
+  player = null;
+}
+
+/**
+ * 在背景生成一些演示用的物件（用於主選單背景）
+ */
+function spawnDemoObjects() {
+  // Spawn a few NPCs and nodes
+  for (let i = 0; i < 4; i++) {
+    spawnNPC(i);
+  }
+  for (let i = 0; i < 15; i++) {
+    spawnNode();
+  }
 }
 
 function spawnNPC(index) {
@@ -177,26 +225,7 @@ function spawnNPC(index) {
 function startGame() {
   isGameOver = false;
   // --- RESET WORLD FOR FRESH START ---
-  // 1. Remove all entities, nodes, and viruses from stage and world
-  entities.forEach(ent => {
-    entityLayer.removeChild(ent.container);
-    if (ent.indicator) app.stage.removeChild(ent.indicator);
-    Matter.World.remove(world, ent.body);
-  });
-  nodes.forEach(node => {
-    nodeLayer.removeChild(node.graphics);
-    Matter.World.remove(world, node.body);
-  });
-  viruses.forEach(v => {
-    virusLayer.removeChild(v.graphics);
-    Matter.World.remove(world, v.body);
-  });
-
-  // 2. Clear arrays
-  entities = [];
-  nodes = [];
-  viruses = [];
-  powerups = [];
+  clearWorld();
   killCount = 0;
   timeScale = 1.0;
 
@@ -1840,10 +1869,21 @@ window.returnToMenu = () => {
   isGameRunning = false;
   isGameOver = false;
   isPaused = false;
+  
+  // 清理世界並生成演示物件
+  clearWorld();
+  spawnDemoObjects();
+
+  const startMenu = document.getElementById('start-menu');
   document.getElementById('pause-menu').style.display = 'none';
   document.getElementById('reward-screen').style.display = 'none';
-  document.getElementById('start-menu').style.display = 'flex';
+  startMenu.style.display = 'flex';
   document.querySelector('.ui-overlay').style.display = 'none';
+  
+  // 觸發進場動畫
+  startMenu.classList.remove('animate-in');
+  void startMenu.offsetWidth; // 觸發 reflow
+  startMenu.classList.add('animate-in');
   
   // Refresh main screen info
   refreshProgressDisplay();
