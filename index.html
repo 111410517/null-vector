@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Null Vector">
+    <title>Null Vector | 零向量</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&display=swap" rel="stylesheet">
+    <script type="module" crossorigin src="./assets/index-C50gRg8a.js"></script>
+    <link rel="modulepreload" crossorigin href="./assets/Geometry-BRmJIpJw.js">
+    <link rel="modulepreload" crossorigin href="./assets/RenderTargetSystem-bNlwA5Xe.js">
+    <link rel="modulepreload" crossorigin href="./assets/getTextureBatchBindGroup-CSlSSh-e.js">
+    <link rel="modulepreload" crossorigin href="./assets/BufferResource-rxIEinoM.js">
+    <link rel="modulepreload" crossorigin href="./assets/canvasUtils-DIVVZk4g.js">
+    <link rel="modulepreload" crossorigin href="./assets/CanvasPool-jrWYBmrk.js">
+    <link rel="stylesheet" crossorigin href="./assets/index-BbI-uUQe.css">
+  <link rel="manifest" href="./manifest.webmanifest"></head>
+  <body>
+    <div id="app">
+      <!-- UI Overlay -->
+      <div class="ui-overlay">
+        <div class="top-left">
+        <div id="minimap-container" class="glass">
+          <canvas id="minimap"></canvas>
+        </div>
+        <div id="lives-container" class="lives-container">
+          <!-- Hearts -->
+        </div>
+      </div>
+
+      <div id="game-timer" class="game-timer">00:00</div>
+   <!-- Leaderboard -->
+        <div class="leaderboard glass">
+          <h2>排行榜</h2>
+          <div id="leaderboard-list">
+          <!-- Items will be injected here -->
+        </div>
+        <div id="survival-stats" class="survival-stats">
+          存活人數：<span id="alive-count">0</span>
+        </div>
+      </div>
+
+        <!-- Controls UI -->
+        <div class="controls-ui">
+          <!-- Left: Joystick -->
+          <div class="joystick-zone" id="joystick-container">
+            <div class="joystick-base"></div>
+            <div class="joystick-thumb" id="joystick-thumb"></div>
+          </div>
+
+          <!-- Right: Skill Button -->
+          <div class="skill-button-zone">
+            <div class="skill-btn" id="skill-btn">
+              <span class="skill-name">加速</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Start Menu -->
+      <div id="start-menu">
+        <div class="menu-container">
+          <div class="menu-content glass">
+            <h1 class="menu-title">NULL VECTOR</h1>
+            <p class="menu-subtitle">SURVIVE. GROW. WIN.</p>
+            
+            <input type="text" id="player-name-input" maxlength="12" placeholder="輸入玩家名稱" value="PLAYER">
+            
+            <button id="start-btn" class="primary-btn">開始遊戲</button>
+
+            <div class="history-panel">
+              <div class="history-label">歷史紀錄 (獲勝時間)</div>
+              <div id="history-list"></div>
+            </div>
+          </div>
+
+          <div class="guide-panel glass">
+            <div class="guide-section">
+              <h3>操作說明</h3>
+              <div class="guide-item">
+                <div class="icon-box"><div class="joy-icon"></div></div>
+                <div class="guide-text"><b>移動</b><br>虛擬搖桿 / WASD</div>
+              </div>
+              <div class="guide-item">
+                <div class="icon-box"><div class="boost-icon"></div></div>
+                <div class="guide-text"><b>加速</b><br>加速按鈕 / 滑鼠左鍵</div>
+              </div>
+            </div>
+
+            <div class="guide-section">
+              <h3>遊戲機制</h3>
+              <div class="guide-item">
+                <div class="icon-box"><div class="grow-icon"></div></div>
+                <div class="guide-text"><b>成長</b><br>收集散落的經驗點</div>
+              </div>
+              <div class="guide-item">
+                <div class="icon-box"><div class="win-icon"></div></div>
+                <div class="guide-text"><b>獲勝</b><br>成為最後的倖存者</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Victory Screen -->
+      <div id="victory-screen">
+        <div class="victory-content glass">
+          <h1 class="victory-title">獲得勝利</h1>
+          <p id="victory-time-label"></p>
+          <button onclick="location.reload()" class="primary-btn">重新開始</button>
+        </div>
+      </div>
+
+      <!-- Respawn Countdown -->
+      <div id="respawn-overlay">
+        <div id="respawn-countdown">3</div>
+        <p style="letter-spacing: 5px; opacity: 0.5; margin-top: 20px;">準備復活中...</p>
+      </div>
+
+      <!-- Game Over -->
+      <div id="game-over">
+        <div class="game-over-content">
+          <h1 class="game-over-title">遊戲結束</h1>
+          <p style="opacity: 0.6;">已被淘汰</p>
+          <button class="reboot-btn" onclick="restartGame()">重新開始</button>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
