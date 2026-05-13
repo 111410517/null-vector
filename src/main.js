@@ -193,19 +193,6 @@ function clearWorld() {
   player = null;
 }
 
-/**
- * 在背景生成一些演示用的物件（用於主選單背景）
- */
-function spawnDemoObjects() {
-  // Spawn a few NPCs and nodes
-  for (let i = 0; i < 4; i++) {
-    spawnNPC(i);
-  }
-  for (let i = 0; i < 15; i++) {
-    spawnNode();
-  }
-}
-
 function spawnNPC(index) {
   const isSmart = index < (CONFIG.npcCount * 0.5); // 50% Smart AI
   let name;
@@ -1870,9 +1857,11 @@ window.returnToMenu = () => {
   isGameOver = false;
   isPaused = false;
   
-  // 清理世界並生成演示物件
+  // 清理世界並重新生成原有的演示背景物件
   clearWorld();
-  spawnDemoObjects();
+  for (let i = 0; i < 4; i++) spawnNPC(i);
+  for (let i = 0; i < CONFIG.nodeCount; i++) spawnNode();
+  for (let i = 0; i < CONFIG.virusCount; i++) spawnVirus();
 
   const startMenu = document.getElementById('start-menu');
   document.getElementById('pause-menu').style.display = 'none';
