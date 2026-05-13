@@ -260,7 +260,6 @@ function startGame() {
   }, 1000);
 }
 
-// --- Factory Functions ---
 function createEntity(x, y, mass, name, isPlayer) {
   const radius = calculateRadius(mass);
   const body = Matter.Bodies.circle(x, y, radius, {
@@ -272,47 +271,30 @@ function createEntity(x, y, mass, name, isPlayer) {
   const container = new PIXI.Container();
   const graphics = new PIXI.Graphics();
   
-  // FIXED: Draw at a standard size and let the update loop handle scaling
-  // This ensures NPCs and Players of same mass have same size
-  const refRadius = calculateRadius(CONFIG.initialMass);
-  drawEntityBody(graphics, isPlayer, refRadius);
-  container.addChild(graphics);
-
   // Name Label (Outside Above)
   const nameLabel = new PIXI.Text({
     text: name,
     style: {
-      fontFamily: 'Outfit',
-      fontSize: 14,
-      fill: 0xFFFFFF,
-      align: 'center',
-      fontWeight: '900',
+      fontFamily: 'Outfit', fontSize: 14, fill: 0xFFFFFF,
+      align: 'center', fontWeight: '900',
       dropShadow: { blur: 4, distance: 0, color: 0x000000, alpha: 0.5 }
     }
   });
   nameLabel.anchor.set(0.5, 1.2);
-  // Do NOT add to container, add to entityLayer directly to handle Z-order if needed,
-  // but for now, we'll keep it in container but ensure wallLayer is higher.
   container.addChild(nameLabel);
 
   // Mass Label (Inside Center)
   const massLabel = new PIXI.Text({
     text: Math.floor(mass),
     style: {
-      fontFamily: 'Outfit',
-      fontSize: 28, 
+      fontFamily: 'Outfit', fontSize: 28, 
       fill: isPlayer ? 0x000000 : 0xFFFFFF, 
-      align: 'center',
-      fontWeight: '900',
+      align: 'center', fontWeight: '900',
     }
   });
   massLabel.anchor.set(0.5, 0.5);
   container.addChild(massLabel);
   
-  // Ensure vfxLayer is always on top within gameContainer
-  if (vfxLayer) gameContainer.setChildIndex(vfxLayer, gameContainer.children.length - 1);
-
-  // Indicator Line
   const indicator = new PIXI.Graphics();
   indicator.visible = false;
   app.stage.addChild(indicator);
@@ -340,10 +322,15 @@ function createEntity(x, y, mass, name, isPlayer) {
   };
 
   entity.body.collisionFilter = {
-    group: -1, // Don't collide with other entities
+    group: -1, 
     category: 0x0002,
-    mask: 0x0001 // Only collide with walls (if walls use category 1)
+    mask: 0x0001 
   };
+
+  // FIXED: Draw initial state immediately
+  const refRadius = calculateRadius(CONFIG.initialMass);
+  drawEntityBody(graphics, isPlayer, refRadius, entity);
+  container.addChild(graphics);
 
   // Direction Indicator (Triangle)
   if (isPlayer) {
@@ -354,13 +341,16 @@ function createEntity(x, y, mass, name, isPlayer) {
     entity.dirIndicator = dirIndicator;
   }
 
-  // Draw initial life rings (1 ring for 2 lives)
+  // Draw initial life rings
   for (let i = 0; i < 1; i++) {
     const ring = new PIXI.Graphics();
     entity.lifeRings.push(ring);
     container.addChild(ring);
   }
   updateLifeRings(entity);
+  
+  if (vfxLayer) gameContainer.setChildIndex(vfxLayer, gameContainer.children.length - 1);
+
   entities.push(entity);
   entityLayer.addChild(container);
   Matter.World.add(world, body);
@@ -636,23 +626,25 @@ function createGrid() {
   app.stage.addChild(grid);
 }
 
-// --- Logic ---
 function update(delta) {
-  if (!isGameRunning || isGameOver || isPaused) return;
+  const isUpdatingPhysics = isGameRunning && !isGameOver && !isPaused;
 
-  // Apply timeScale (Flash Step bullet time)
-  const scaledDeltaMS = Math.min(16.6, delta.elapsedMS) * timeScale;
-  Matter.Engine.update(engine, scaledDeltaMS);
+  if (isUpdatingPhysics) {
+    // Apply timeScale (Flash Step bullet time)
+    const scaledDeltaMS = Math.min(16.6, delta.elapsedMS) * timeScale;
+    Matter.Engine.update(engine, scaledDeltaMS);
 
-  // Update skill cooldown
-  if (skillState) {
-    updateSkillCooldown(skillState, delta.elapsedMS); // Cooldown uses real time
-    updateSkillEffects(delta);
-    updateCooldownUI();
+    // Update skill cooldown
+    if (skillState) {
+      updateSkillCooldown(skillState, delta.elapsedMS); 
+      updateSkillEffects(delta);
+      updateCooldownUI();
+    }
+
+    handleInputs();
   }
 
-  handleInputs();
-
+  // SYNC GRAPHICS & LOGIC (Always run for menu background)
   entities.forEach(ent => {
     if (ent.isDestroyed) return;
 
@@ -667,191 +659,160 @@ function update(delta) {
 
     const p = ent.body.position;
     if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) {
-      Matter.Body.setPosition(ent.body, { x: CONFIG.worldSize/2, y: CONFIG.worldSize/2 });
+      Matter.Body.setPosition(ent.body, { x: CONFIG.worldSize / 2, y: CONFIG.worldSize / 2 });
     }
     // --------------------------------------------
 
-    // RESTORE NPC AI with spawnDelay
-    if (!ent.isPlayer) {
-      if (ent.spawnDelay > 0) {
-        ent.spawnDelay -= delta.elapsedMS;
-        Matter.Body.setVelocity(ent.body, { x: 0, y: 0 });
-      } else {
-        updateAI(ent, delta, { entities, viruses, nodes, powerups, isGameOver });
+    if (isUpdatingPhysics) {
+      // RESTORE NPC AI with spawnDelay
+      if (!ent.isPlayer) {
+        if (ent.spawnDelay > 0) {
+          ent.spawnDelay -= delta.elapsedMS;
+          Matter.Body.setVelocity(ent.body, { x: 0, y: 0 });
+        } else {
+          updateAI(ent, delta, { entities, viruses, nodes, powerups, isGameOver });
+        }
       }
-    }
 
-    // Protection Effect
-    if (ent.protectionTime > 0) {
-      ent.protectionTime -= delta.deltaTime;
-      ent.container.alpha = 0.4 + Math.sin(Date.now() * 0.01) * 0.4;
-    } else {
-      ent.container.alpha = 1.0;
+      // Protection Effect
+      if (ent.protectionTime > 0) {
+        ent.protectionTime -= delta.deltaTime;
+        ent.container.alpha = 0.4 + Math.sin(Date.now() * 0.01) * 0.4;
+      } else {
+        ent.container.alpha = 1.0;
+      }
     }
 
     const pos = ent.body.position;
     const radius = calculateRadius(ent.mass);
-    ent.body.circleRadius = radius;
     
-    // CRITICAL FIX: Synchronize physical mass with logic mass
-    // Matter.js doesn't automatically update body.mass when we change logic variables.
-    // Without this, large entities keep the initial mass of 30 but get the force of 1000+, 
-    // causing them to move at supersonic speeds.
-    Matter.Body.setMass(ent.body, ent.mass);
-    
-    updateLifeRings(ent);
+    if (isUpdatingPhysics) {
+      ent.body.circleRadius = radius;
+      Matter.Body.setMass(ent.body, ent.mass);
+      updateLifeRings(ent);
 
-    // DYNAMIC BOOST CONSUMPTION & DEFORMATION LERP
-    // Safety check for player boost state to prevent stuck "Overdrive" effect
-    if (ent.isPlayer && skillState) {
-      const isDefaultBoost = skillState.isDefaultBoost && ent.isBoosting;
-      const isOverdrive = skillState.skillId === 'overdrive' && skillState.isActive;
-      const isTripleDash = skillState.skillId === 'tripleDash' && skillState.isActive;
-      if (!isDefaultBoost && !isOverdrive && !isTripleDash) {
-        ent.isBoosting = false;
+      // DYNAMIC BOOST CONSUMPTION & DEFORMATION LERP
+      if (ent.isPlayer && skillState) {
+        const isDefaultBoost = skillState.isDefaultBoost && ent.isBoosting;
+        const isOverdrive = skillState.skillId === 'overdrive' && skillState.isActive;
+        const isTripleDash = skillState.skillId === 'tripleDash' && skillState.isActive;
+        if (!isDefaultBoost && !isOverdrive && !isTripleDash) {
+          ent.isBoosting = false;
+        }
       }
-    }
 
-    const targetBoost = ent.isBoosting ? 1.0 : 0.0;
-    ent.boostFactor += (targetBoost - ent.boostFactor) * 0.08;
-    
-    // Only consume mass if it's NOT a skill boost (Overdrive doesn't cost mass)
-    const isSkillBoost = ent.isPlayer && skillState && !skillState.isDefaultBoost && skillState.isActive;
-    if (ent.isBoosting && ent.mass > 20 && !isSkillBoost) {
-      ent.mass -= 0.01 * delta.deltaTime;
-    }
-
-    const baseForce = CONFIG.baseForce * Math.pow(ent.mass / 30, 0.8);
-
-    // TAIL ANGLE LERP (Inertia)
-    const currentVelAngle = Math.atan2(ent.body.velocity.y, ent.body.velocity.x);
-    let angleDiff = currentVelAngle - ent.tailAngle;
-    while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
-    while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
-    ent.tailAngle += angleDiff * 0.12; // Adjust for sway speed
-
-    if (ent.isBoosting && ent.mass > CONFIG.initialMass * 0.8 && !isSkillBoost) {
-      // Slither.io style: Subtle mass loss (approx 10-15 mass per second for a 1000 mass entity)
-      const consumption = (0.01 + ent.mass * 0.00015) * delta.deltaTime;
-      ent.mass -= consumption;
+      const targetBoost = ent.isBoosting ? 1.0 : 0.0;
+      ent.boostFactor += (targetBoost - ent.boostFactor) * 0.08;
       
-      // NPC Budget Management
-      if (!ent.isPlayer) {
-        ent.boostBudget -= consumption;
-        if (ent.boostBudget <= 0) ent.isBoosting = false;
-      } else {
-        boostAccumulator += consumption;
+      const isSkillBoost = ent.isPlayer && skillState && !skillState.isDefaultBoost && skillState.isActive;
+      if (ent.isBoosting && ent.mass > 20 && !isSkillBoost) {
+        ent.mass -= 0.01 * delta.deltaTime;
       }
-      triggerBoostParticles(ent);
-    }
 
-    // SOFT BOUNDARIES & WALL DAMPING
-    const springK = 0.01;
-    const wallMargin = radius * 0.3; 
-    const damping = 0.85;
+      // TAIL ANGLE LERP (Inertia)
+      const currentVelAngle = Math.atan2(ent.body.velocity.y, ent.body.velocity.x);
+      let angleDiff = currentVelAngle - ent.tailAngle;
+      while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+      while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+      ent.tailAngle += angleDiff * 0.12;
 
-    if (pos.x < wallMargin) {
-      Matter.Body.applyForce(ent.body, pos, { x: (wallMargin - pos.x) * springK, y: 0 });
-      if (ent.body.velocity.x < 0) Matter.Body.setVelocity(ent.body, { x: ent.body.velocity.x * damping, y: ent.body.velocity.y });
-    }
-    if (pos.x > CONFIG.worldSize - wallMargin) {
-      Matter.Body.applyForce(ent.body, pos, { x: -(pos.x - (CONFIG.worldSize - wallMargin)) * springK, y: 0 });
-      if (ent.body.velocity.x > 0) Matter.Body.setVelocity(ent.body, { x: ent.body.velocity.x * damping, y: ent.body.velocity.y });
-    }
-    if (pos.y < wallMargin) {
-      Matter.Body.applyForce(ent.body, pos, { x: 0, y: (wallMargin - pos.y) * springK });
-      if (ent.body.velocity.y < 0) Matter.Body.setVelocity(ent.body, { x: ent.body.velocity.x, y: ent.body.velocity.y * damping });
-    }
-    if (pos.y > CONFIG.worldSize - wallMargin) {
-      Matter.Body.applyForce(ent.body, pos, { x: 0, y: -(pos.y - (CONFIG.worldSize - wallMargin)) * springK });
-      if (ent.body.velocity.y > 0) Matter.Body.setVelocity(ent.body, { x: ent.body.velocity.x, y: ent.body.velocity.y * damping });
-    }
-
-    // SOFT CENTER REPULSION & EATING (Agar.io Style)
-    entities.forEach(other => {
-      if (ent === other || other.isDestroyed) return;
-      const diff = Matter.Vector.sub(other.body.position, ent.body.position);
-      const dist = Matter.Vector.magnitude(diff);
-      const otherRadius = calculateRadius(other.mass);
-      const combinedRadius = radius + otherRadius;
-
-      if (dist < combinedRadius) {
-        // 1. Soft Repulsion (Only when very close to center to avoid stacking)
-        const repulsionThreshold = combinedRadius * 0.5;
-        if (dist < repulsionThreshold) {
-          const overlap = repulsionThreshold - dist;
-          const repulsionK = 0.00005; // Much weaker than before (was 0.0002)
-          const force = Matter.Vector.mult(Matter.Vector.normalise(diff), overlap * repulsionK);
-          Matter.Body.applyForce(other.body, other.body.position, force);
-          Matter.Body.applyForce(ent.body, ent.body.position, Matter.Vector.neg(force));
+      if (ent.isBoosting && ent.mass > CONFIG.initialMass * 0.8 && !isSkillBoost) {
+        const consumption = (0.01 + ent.mass * 0.00015) * delta.deltaTime;
+        ent.mass -= consumption;
+        if (!ent.isPlayer) {
+          ent.boostBudget -= consumption;
+          if (ent.boostBudget <= 0) ent.isBoosting = false;
+        } else {
+          boostAccumulator += consumption;
         }
+        triggerBoostParticles(ent);
+      }
 
-        // 2. Eating Logic
-        if (ent.protectionTime <= 0 && other.protectionTime <= 0) {
-          // SPECIAL: Disable normal eating for player during Flash Step to prevent logic conflict
-          if (ent.isPlayer && skillState && skillState.skillId === 'flashStep' && (skillState.isChanneling || skillState.isActive)) {
-            return;
+      // SOFT BOUNDARIES & WALL DAMPING
+      const springK = 0.01;
+      const wallMargin = radius * 0.3; 
+      const damping = 0.85;
+
+      if (pos.x < wallMargin) {
+        Matter.Body.applyForce(ent.body, pos, { x: (wallMargin - pos.x) * springK, y: 0 });
+        if (ent.body.velocity.x < 0) Matter.Body.setVelocity(ent.body, { x: ent.body.velocity.x * damping, y: ent.body.velocity.y });
+      }
+      if (pos.x > CONFIG.worldSize - wallMargin) {
+        Matter.Body.applyForce(ent.body, pos, { x: -(pos.x - (CONFIG.worldSize - wallMargin)) * springK, y: 0 });
+        if (ent.body.velocity.x > 0) Matter.Body.setVelocity(ent.body, { x: ent.body.velocity.x * damping, y: ent.body.velocity.y });
+      }
+      if (pos.y < wallMargin) {
+        Matter.Body.applyForce(ent.body, pos, { x: 0, y: (wallMargin - pos.y) * springK });
+        if (ent.body.velocity.y < 0) Matter.Body.setVelocity(ent.body, { x: ent.body.velocity.x, y: ent.body.velocity.y * damping });
+      }
+      if (pos.y > CONFIG.worldSize - wallMargin) {
+        Matter.Body.applyForce(ent.body, pos, { x: 0, y: -(pos.y - (CONFIG.worldSize - wallMargin)) * springK });
+        if (ent.body.velocity.y > 0) Matter.Body.setVelocity(ent.body, { x: ent.body.velocity.x, y: ent.body.velocity.y * damping });
+      }
+
+      // Eating Logic
+      entities.forEach(other => {
+        if (ent === other || other.isDestroyed) return;
+        const diff = Matter.Vector.sub(other.body.position, ent.body.position);
+        const dist = Matter.Vector.magnitude(diff);
+        const otherRadius = calculateRadius(other.mass);
+        const combinedRadius = radius + otherRadius;
+
+        if (dist < combinedRadius) {
+          const repulsionThreshold = combinedRadius * 0.5;
+          if (dist < repulsionThreshold) {
+            const overlap = repulsionThreshold - dist;
+            const repulsionK = 0.00005;
+            const force = Matter.Vector.mult(Matter.Vector.normalise(diff), overlap * repulsionK);
+            Matter.Body.applyForce(other.body, other.body.position, force);
+            Matter.Body.applyForce(ent.body, ent.body.position, Matter.Vector.neg(force));
           }
 
-          // Condition: Mass ratio >= 1.25 and small ball center is well within large ball
-          // More forgiving threshold: dist < radius * 0.9
-          if (ent.mass > other.mass * 1.25 && dist < radius * 0.9) {
-            ent.mass += other.mass * 0.5;
-            if (ent.isPlayer || other.isPlayer) screenShake = Math.max(screenShake, 40); // Increased to 40
-            if (ent.isPlayer && !other.isPlayer) killCount++;
-            shatterEntity(other);
+          if (ent.protectionTime <= 0 && other.protectionTime <= 0) {
+            if (ent.isPlayer && skillState && skillState.skillId === 'flashStep' && (skillState.isChanneling || skillState.isActive)) {
+              return;
+            }
+            if (ent.mass > other.mass * 1.25 && dist < radius * 0.9) {
+              ent.mass += other.mass * 0.5;
+              if (ent.isPlayer || other.isPlayer) screenShake = Math.max(screenShake, 40);
+              if (ent.isPlayer && !other.isPlayer) killCount++;
+              shatterEntity(other);
+            }
           }
         }
-      }
-    });
+      });
+
+      checkCollisions(ent);
+    }
 
     // Sync Graphics
-    ent.container.x = ent.body.position.x;
-    ent.container.y = ent.body.position.y;
+    ent.container.x = pos.x;
+    ent.container.y = pos.y;
     ent.massLabel.text = Math.floor(ent.mass);
-    
-    // Position name label above the scaled graphics
     ent.nameLabel.y = -radius - 15;
     
     drawEntityBody(ent.graphics, ent.isPlayer, radius, ent);
 
-    // TEXT COMPENSATION: Counter-act stage zoom to keep text readable
     const inverseZoom = 1 / app.stage.scale.x;
     ent.nameLabel.scale.set(inverseZoom);
     ent.massLabel.scale.set(inverseZoom);
 
-    // Velocity Clamping removed to allow pure physical formula balancing as suggested.
-    // Friction (0.12) and Force (mass^0.6) will naturally define terminal velocity.
-
-    checkCollisions(ent);
-
-    // Update Direction Indicator (Outside of Life Rings)
     if (ent.isPlayer && ent.dirIndicator) {
       const vel = ent.body.velocity;
       const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
       if (speed > 0.5) {
         ent.dirIndicator.visible = true;
         const targetAngle = Math.atan2(vel.y, vel.x);
-        
-        // SMOOTH ROTATION (Lerp) to prevent bouncing
         let diff = targetAngle - ent.smoothRotation;
         while (diff < -Math.PI) diff += Math.PI * 2;
         while (diff > Math.PI) diff -= Math.PI * 2;
         ent.smoothRotation += diff * 0.2;
         ent.dirIndicator.rotation = ent.smoothRotation;
-        
-        // Counter-act stage zoom
-        const inverseZoom = 1 / app.stage.scale.x;
         ent.dirIndicator.scale.set(inverseZoom);
-
-        // GET ACTUAL RADIUS AT THIS ANGLE
         const deformedR = getDeformedRadius(ent, ent.smoothRotation, radius);
-        
-        // Position relative to current shape edge
         const ringSpacing = 0.15;
         const ringOffsetMult = (ent.lives > 1 ? (ent.lives - 1) * ringSpacing + 0.1 : 0.05);
         const dist = deformedR + (radius * ringOffsetMult) + (15 * inverseZoom);
-        
         ent.dirIndicator.x = Math.cos(ent.smoothRotation) * dist;
         ent.dirIndicator.y = Math.sin(ent.smoothRotation) * dist;
       } else {
@@ -860,22 +821,19 @@ function update(delta) {
     }
   });
 
-  // Camera Zoom & Follow Logic
+  // Camera Logic (Always run)
   const minZoom = Math.max(app.screen.width, app.screen.height) / (CONFIG.worldSize * 1.05);
   const zoomLerp = 0.04;
   const followLerp = 0.1;
 
   if (player) {
     let targetZoom = Math.max(minZoom, 0.85 / (1 + (player.mass - CONFIG.initialMass) * 0.0006));
-    // SLITHER.IO CAMERA: Zoom out slightly when boosting for better vision
     if (player.isBoosting) targetZoom *= 0.85; 
     app.stage.scale.x += (targetZoom - app.stage.scale.x) * zoomLerp;
     app.stage.scale.y += (targetZoom - app.stage.scale.y) * zoomLerp;
-
     app.stage.pivot.x += (player.body.position.x - app.stage.pivot.x) * followLerp;
     app.stage.pivot.y += (player.body.position.y - app.stage.pivot.y) * followLerp;
   } else {
-    // Menu background view: stay at center, slightly zoomed in
     const menuZoom = minZoom * 1.2;
     app.stage.scale.x += (menuZoom - app.stage.scale.x) * zoomLerp;
     app.stage.scale.y += (menuZoom - app.stage.scale.y) * zoomLerp;
@@ -893,34 +851,16 @@ function update(delta) {
     app.stage.position.y = app.screen.height / 2;
   }
 
-  // Player Exclusive UI & State
-  if (player) {
-    const skillBtn = document.getElementById('skill-btn');
-    // For default boost mode, show active state
-    if (skillState && skillState.isDefaultBoost) {
-      if (player.isBoosting) {
-        skillBtn.classList.add('active');
-      } else {
-        skillBtn.classList.remove('active');
-      }
-    } else if (skillState && skillState.isActive) {
-      skillBtn.classList.add('active');
-    } else {
-      skillBtn.classList.remove('active');
-    }
-  }
-  
-  // Timer and Victory
-  if (isGameRunning && !isGameOver) {
+  // Timer & UI
+  if (isGameRunning && !isGameOver && !isPaused) {
     elapsedTime = Date.now() - startTime;
     const mins = Math.floor(elapsedTime / 60000).toString().padStart(2, '0');
     const secs = Math.floor((elapsedTime % 60000) / 1000).toString().padStart(2, '0');
     const timerEl = document.getElementById('timer-text');
     if (timerEl) timerEl.innerText = `${mins}:${secs}`;
     
-    // Accumulative Boost Text
     boostTextTimer += delta.deltaTime;
-    if (boostTextTimer > 30) { // Every ~0.5s
+    if (boostTextTimer > 30) {
       if (boostAccumulator > 1) {
         showFloatingText(player.body.position.x, player.body.position.y, `-${Math.floor(boostAccumulator)}`, 0xFF4444);
         boostAccumulator = 0;
@@ -928,7 +868,6 @@ function update(delta) {
       boostTextTimer = 0;
     }
 
-    // Win Condition (Added delay to allow NPCs to spawn)
     if (elapsedTime > 2000 && entities.length === 1 && entities[0].isPlayer) {
       winGame();
     }
