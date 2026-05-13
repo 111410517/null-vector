@@ -1,0 +1,204 @@
+/**
+ * skills.js — 技能定義、冷卻管理、施放邏輯
+ *
+ * 四個技能取代原有「長按加速」：
+ * 1. 衝刺 (Sprint) — 消耗固定質量瞬間衝刺
+ * 2. 超級加速 (Overdrive) — 無質量消耗，漸增加速
+ * 3. 三段式衝刺 (Triple Dash) — 連續三次方向衝刺
+ * 4. 閃現 (Flash Step) — 長按瞄準 + 瞬移 + 路徑擊殺
+ */
+
+/**
+ * 技能定義表
+ * 每個技能包含基礎參數與各強化等級的數值
+ */
+export const SKILL_DEFS = {
+  sprint: {
+    id: 'sprint',
+    name: '衝刺',
+    icon: '↗',
+    description: '消耗固定質量，朝當前方向瞬間衝刺',
+    type: 'instant', // instant | toggle | channel
+    // 各等級參數 [level 1, level 2, level 3]
+    massCost: [15, 15, 10],
+    cooldown: [2500, 2000, 2000],   // ms
+    minMass: 20,
+    // 衝刺力度倍率（相對於 baseForce）
+    dashForce: 80,
+  },
+
+  overdrive: {
+    id: 'overdrive',
+    name: '超級加速',
+    icon: '⚡',
+    description: '不消耗質量，加速效果從 1% 漸增至 150%',
+    type: 'toggle',
+    massCost: [0, 0, 0],
+    cooldown: [6000, 6000, 4500],   // ms
+    minMass: 0,
+    // 加速漸增時間（ms）、持續時間（ms）
+    rampUpDuration: 1000,           // 1s 從 1% → 150%
+    sustainDuration: [1500, 2000, 2000], // ms
+    maxSpeedMult: 2.5,              // 150% bonus = 2.5x
+  },
+
+  tripleDash: {
+    id: 'tripleDash',
+    name: '三段衝刺',
+    icon: '≡',
+    description: '以 700ms 間隔朝指向連續衝刺三次',
+    type: 'instant',
+    massCostPerDash: [8, 5, 5],     // 每段消耗
+    cooldown: [8000, 8000, 6000],   // ms
+    minMass: 30,
+    dashCount: 3,
+    dashInterval: 700,              // ms
+    dashForce: 60,
+  },
+
+  flashStep: {
+    id: 'flashStep',
+    name: '閃現',
+    icon: '◎',
+    description: '長按瞄準，放開瞬移至目標點並擊殺路徑上敵人',
+    type: 'channel',                // 長按施放
+    massCost: [30, 20, 20],
+    cooldown: [12000, 12000, 9000], // ms
+    minMass: 50,
+    maxRangeMultiplier: 8,          // 最大距離 = 玩家半徑 × 8
+    teleportDuration: 150,          // ms 移動動畫時長
+    slowMotionScale: 0.3,           // NPC 減速至 30%
+    postInvincibility: 500,         // ms 到達後無敵時間
+  },
+};
+
+/**
+ * 技能運行時狀態
+ * 在每場遊戲開始時透過 createSkillState() 初始化
+ */
+
+/**
+ * 建立一場遊戲的技能運行時狀態
+ * @param {string|null} equippedSkillId - 裝備的技能 ID，null 表示預設加速
+ * @param {number} skillLevel - 技能等級 (1~3)
+ * @returns {object} 技能運行時狀態
+ */
+export function createSkillState(equippedSkillId, skillLevel) {
+  return {
+    skillId: equippedSkillId,
+    level: skillLevel,
+    // 冷卻計時（0 表示可用）
+    cooldownRemaining: 0,
+    // 技能是否正在生效
+    isActive: false,
+    // 超級加速專用：當前加速倍率
+    overdriveSpeedMult: 1.0,
+    overdrivePhase: 'idle', // 'idle' | 'rampUp' | 'sustain'
+    overdriveElapsed: 0,
+    // 三段衝刺專用：剩餘衝刺次數
+    tripleDashRemaining: 0,
+    tripleDashTimer: 0,
+    // 閃現專用：是否在瞄準模式
+    isChanneling: false,
+    flashTarget: null, // { x, y }
+    // 通用：是否為預設加速模式
+    isDefaultBoost: equippedSkillId === null,
+  };
+}
+
+/**
+ * 取得技能定義
+ * @param {string} skillId - 技能 ID
+ * @returns {object|null} 技能定義
+ */
+export function getSkillDef(skillId) {
+  return SKILL_DEFS[skillId] || null;
+}
+
+/**
+ * 取得技能在指定等級的特定參數值
+ * @param {object} def - 技能定義
+ * @param {string} param - 參數名稱
+ * @param {number} level - 技能等級 (1~3)
+ * @returns {*} 參數值
+ */
+export function getSkillParam(def, param, level) {
+  const value = def[param];
+  if (Array.isArray(value)) {
+    return value[Math.min(level - 1, value.length - 1)];
+  }
+  return value;
+}
+
+/**
+ * 檢查技能是否可以施放
+ * @param {object} skillState - 運行時狀態
+ * @param {object} player - 玩家實體
+ * @returns {{ canUse: boolean, reason: string }}
+ */
+export function canUseSkill(skillState, player) {
+  if (skillState.isDefaultBoost) {
+    return { canUse: true, reason: '' };
+  }
+  if (!skillState.skillId) {
+    return { canUse: false, reason: '未裝備技能' };
+  }
+
+  const def = SKILL_DEFS[skillState.skillId];
+  if (!def) return { canUse: false, reason: '技能不存在' };
+
+  if (skillState.cooldownRemaining > 0) {
+    return { canUse: false, reason: '冷卻中' };
+  }
+  if (skillState.isActive) {
+    // 超級加速和閃現可以在 active 時再次按下
+    if (def.type === 'toggle' || def.type === 'channel') {
+      return { canUse: true, reason: '' };
+    }
+    return { canUse: false, reason: '使用中' };
+  }
+
+  const massCost = getSkillParam(def, def.id === 'tripleDash' ? 'massCostPerDash' : 'massCost', skillState.level);
+  const totalCost = def.id === 'tripleDash' ? massCost * def.dashCount : massCost;
+
+  if (player.mass < def.minMass || player.mass < totalCost + 5) {
+    return { canUse: false, reason: '質量不足' };
+  }
+
+  return { canUse: true, reason: '' };
+}
+
+/**
+ * 更新技能冷卻時間（每幀呼叫）
+ * @param {object} skillState - 運行時狀態
+ * @param {number} deltaMs - 經過的毫秒數
+ */
+export function updateSkillCooldown(skillState, deltaMs) {
+  if (skillState.cooldownRemaining > 0) {
+    skillState.cooldownRemaining = Math.max(0, skillState.cooldownRemaining - deltaMs);
+  }
+}
+
+/**
+ * 啟動技能冷卻
+ * @param {object} skillState - 運行時狀態
+ */
+export function startCooldown(skillState) {
+  const def = SKILL_DEFS[skillState.skillId];
+  if (!def) return;
+  skillState.cooldownRemaining = getSkillParam(def, 'cooldown', skillState.level);
+  skillState.isActive = false;
+}
+
+/**
+ * 取得冷卻進度（0 = 就緒，1 = 剛進入冷卻）
+ * @param {object} skillState - 運行時狀態
+ * @returns {number} 0~1
+ */
+export function getCooldownProgress(skillState) {
+  if (skillState.cooldownRemaining <= 0) return 0;
+  const def = SKILL_DEFS[skillState.skillId];
+  if (!def) return 0;
+  const total = getSkillParam(def, 'cooldown', skillState.level);
+  return skillState.cooldownRemaining / total;
+}

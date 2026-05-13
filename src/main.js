@@ -4,6 +4,15 @@ import * as Matter from 'matter-js';
 import * as PIXI from 'pixi.js';
 import { CONFIG, calculateRadius } from './constants.js';
 import { updateAI } from './ai.js';
+import {
+  loadProgress, saveProgress, getLevelProgress, grantXP, grantGold,
+  calculateXPReward, calculateGoldReward, unlockSkill, equipSkill, upgradeSkill,
+  MAX_LEVEL
+} from './progression.js';
+import {
+  SKILL_DEFS, createSkillState, getSkillDef, getSkillParam,
+  canUseSkill, updateSkillCooldown, startCooldown, getCooldownProgress
+} from './skills.js';
 
 // --- Game State ---
 let app, engine, world;
@@ -21,6 +30,13 @@ let elapsedTime = 0;
 let miniCanvas, miniCtx;
 let boostAccumulator = 0;
 let boostTextTimer = 0;
+
+// --- Progression State ---
+let progress = loadProgress();
+let skillState = null;
+let killCount = 0;
+/** 閃現技能的全域時間縮放 (1.0 = 正常, 0.3 = 減速) */
+let timeScale = 1.0;
 
 const NPC_NAMES = [
   "Shadow_Hunter", "Zephyr", "Apex_Void", "CyberPulse", "Neon_Ghost",
@@ -43,6 +59,7 @@ async function init() {
   createGrid();
   initMinimap();
   loadHistory();
+  initProgressionUI();
 
   // Create Layers
   nodeLayer = new PIXI.Container();
@@ -108,6 +125,8 @@ function startGame() {
   nodes = [];
   viruses = [];
   powerups = [];
+  killCount = 0;
+  timeScale = 1.0;
 
   // 3. Re-spawn initial game objects
   for (let i = 0; i < CONFIG.nodeCount; i++) spawnNode();
@@ -117,6 +136,12 @@ function startGame() {
   const nameInput = document.getElementById('player-name-input').value || "PLAYER";
   player = createEntity(CONFIG.worldSize / 2, CONFIG.worldSize / 2, CONFIG.initialMass, nameInput, true);
   updateLivesUI();
+
+  // 5. Initialize skill state for this match
+  const equipped = progress.equippedSkill;
+  const skillLevel = equipped ? (progress.skills[equipped]?.level || 1) : 0;
+  skillState = createSkillState(equipped, skillLevel);
+  updateInGameSkillButton();
   
   isGameRunning = true;
   startTime = Date.now();
@@ -126,14 +151,13 @@ function startGame() {
   // START RARE ITEM (Delayed by 30s)
   setTimeout(spawnRareItem, 30000); 
 
-  // 5. Start Spawning NPCs over time (Restoring your original design)
+  // 6. Start Spawning NPCs over time
   let spawned = 0;
   const spawnInterval = setInterval(() => {
     if (spawned >= CONFIG.npcCount || !isGameRunning) {
       clearInterval(spawnInterval);
       return;
     }
-    // Batch the first 4 NPCs, then 1 by 1
     if (spawned === 0) {
       for (let i = 0; i < 4; i++) spawnNPC(spawned++);
     } else {
@@ -511,8 +535,17 @@ function createGrid() {
 // --- Logic ---
 function update(delta) {
   if (!isGameRunning || isGameOver || isPaused) return;
-  // Cap delta to prevent Matter.js warnings and physics jitter
-  Matter.Engine.update(engine, Math.min(16.6, delta.elapsedMS));
+
+  // Apply timeScale (Flash Step bullet time)
+  const scaledDeltaMS = Math.min(16.6, delta.elapsedMS) * timeScale;
+  Matter.Engine.update(engine, scaledDeltaMS);
+
+  // Update skill cooldown
+  if (skillState) {
+    updateSkillCooldown(skillState, delta.elapsedMS); // Cooldown uses real time
+    updateSkillEffects(delta);
+    updateCooldownUI();
+  }
 
   handleInputs();
 
@@ -637,6 +670,7 @@ function update(delta) {
           if (ent.mass > other.mass * 1.25 && dist < radius * 0.9) {
             ent.mass += other.mass * 0.5;
             if (ent.isPlayer || other.isPlayer) screenShake = 20;
+            if (ent.isPlayer && !other.isPlayer) killCount++;
             shatterEntity(other);
           }
         }
@@ -733,9 +767,15 @@ function update(delta) {
 
   // Player Exclusive UI & State
   if (player) {
-    // UI Feedback for Boosting
     const skillBtn = document.getElementById('skill-btn');
-    if (player.isBoosting) {
+    // For default boost mode, show active state
+    if (skillState && skillState.isDefaultBoost) {
+      if (player.isBoosting) {
+        skillBtn.classList.add('active');
+      } else {
+        skillBtn.classList.remove('active');
+      }
+    } else if (skillState && skillState.isActive) {
       skillBtn.classList.add('active');
     } else {
       skillBtn.classList.remove('active');
@@ -797,9 +837,14 @@ function handleInputs() {
 
   // Apply Player Force (Keyboard/Joystick)
   if (Number.isFinite(joystick.vector.x) && (joystick.vector.x !== 0 || joystick.vector.y !== 0)) {
-    const boostMult = player.isBoosting ? 2.0 : 1.0; 
+    // Determine boost multiplier based on skill state
+    let boostMult = 1.0;
+    if (skillState && skillState.isDefaultBoost && player.isBoosting) {
+      boostMult = 2.0;
+    } else if (skillState && skillState.skillId === 'overdrive' && skillState.isActive) {
+      boostMult = skillState.overdriveSpeedMult;
+    }
     const finalMult = boostMult * (player.speedMult || 1.0);
-    // REDUCED GAP: Acceleration proportional to 1/mass^0.2 (was 0.4)
     const force = CONFIG.baseForce * Math.pow(player.mass / 30, 0.8) * finalMult;
     
     Matter.Body.applyForce(player.body, player.body.position, { 
@@ -1066,6 +1111,7 @@ function shatterEntity(ent) {
 
   if (ent.isPlayer) {
     isGameOver = true;
+    showRewardScreen(false);
     document.getElementById('game-over').style.display = 'flex';
     document.querySelector('.ui-overlay').style.display = 'none';
   }
@@ -1108,18 +1154,32 @@ function setupInputs() {
 
   const skillBtn = document.getElementById('skill-btn');
   
-  // Continuous Boost Setup
-  const startBoost = () => { if (isGameOver || !player) return; player.isBoosting = true; };
-  const endBoost = () => { if (player) player.isBoosting = false; };
+  // Skill activation (replaces old boost)
+  const activateSkill = () => {
+    if (isGameOver || !player || !skillState) return;
+    if (skillState.isDefaultBoost) {
+      player.isBoosting = true;
+      return;
+    }
+    handleSkillActivation();
+  };
+  const deactivateSkill = () => {
+    if (!player || !skillState) return;
+    if (skillState.isDefaultBoost) {
+      player.isBoosting = false;
+      return;
+    }
+    handleSkillDeactivation();
+  };
 
   window.addEventListener('mousedown', (e) => {
     if (e.target.tagName === 'BUTTON' || e.target.closest('#leaderboard')) return;
-    if (e.button === 0) startBoost();
+    if (e.button === 0) activateSkill();
   });
-  window.addEventListener('mouseup', endBoost);
+  window.addEventListener('mouseup', deactivateSkill);
 
-  skillBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startBoost(); });
-  window.addEventListener('touchend', endBoost);
+  skillBtn.addEventListener('touchstart', (e) => { e.preventDefault(); activateSkill(); });
+  window.addEventListener('touchend', deactivateSkill);
 
   joyZone = document.getElementById('joystick-container');
   joyThumb = document.getElementById('joystick-thumb');
@@ -1454,6 +1514,7 @@ function winGame() {
   document.getElementById('victory-time-label').innerText = `總計時間：${timeStr}`;
   document.querySelector('.ui-overlay').style.display = 'none';
   saveHistory(timeStr);
+  showRewardScreen(true);
 }
 
 function saveHistory(time) {
@@ -1541,6 +1602,496 @@ window.addEventListener('keydown', (e) => {
     togglePause();
   }
 });
+
+// ==========================================================
+// PROGRESSION SYSTEM FUNCTIONS
+// ==========================================================
+
+/**
+ * 初始化成長系統 UI（Tab 切換、等級/金幣顯示、技能頁面）
+ */
+function initProgressionUI() {
+  // Tab switching
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tab = btn.dataset.tab;
+      document.querySelectorAll('.tab-page').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById(`tab-${tab}`).classList.add('active');
+      btn.classList.add('active');
+    });
+  });
+
+  // Unequip skill button
+  document.getElementById('unequip-skill-btn').addEventListener('click', () => {
+    progress.equippedSkill = null;
+    saveProgress(progress);
+    renderSkillsPage();
+  });
+
+  refreshProgressDisplay();
+  renderSkillsPage();
+}
+
+/**
+ * 刷新主選單的等級/金幣/經驗條顯示
+ */
+function refreshProgressDisplay() {
+  const pct = getLevelProgress(progress);
+  document.getElementById('level-label').textContent = `Lv.${progress.level}`;
+  document.getElementById('xp-bar-fill').style.width = `${Math.round(pct * 100)}%`;
+  document.getElementById('xp-percent').textContent = `${Math.round(pct * 100)}%`;
+  document.getElementById('gold-amount').textContent = progress.gold;
+  // Sync skin page gold
+  const skinGold = document.getElementById('skin-gold-amount');
+  if (skinGold) skinGold.textContent = progress.gold;
+}
+
+/**
+ * 渲染技能頁面（卡片狀態、裝備欄、技能點）
+ */
+function renderSkillsPage() {
+  document.getElementById('skill-points-count').textContent = progress.skillPoints;
+
+  // Equipped banner
+  const equipped = progress.equippedSkill;
+  const unequipBtn = document.getElementById('unequip-skill-btn');
+  if (equipped && SKILL_DEFS[equipped]) {
+    const def = SKILL_DEFS[equipped];
+    const lvl = progress.skills[equipped].level;
+    document.getElementById('equipped-skill-icon').textContent = def.icon;
+    document.getElementById('equipped-skill-name').textContent = def.name;
+    document.getElementById('equipped-skill-level').textContent = `Lv.${lvl}/3`;
+    unequipBtn.style.display = 'inline-block';
+  } else {
+    document.getElementById('equipped-skill-icon').textContent = '—';
+    document.getElementById('equipped-skill-name').textContent = '預設加速';
+    document.getElementById('equipped-skill-level').textContent = '';
+    unequipBtn.style.display = 'none';
+  }
+
+  // Render each skill card
+  ['sprint', 'overdrive', 'tripleDash', 'flashStep'].forEach(id => {
+    const skill = progress.skills[id];
+    const card = document.querySelector(`.skill-card[data-skill="${id}"]`);
+    const starsEl = document.getElementById(`stars-${id}`);
+    const actionsEl = document.getElementById(`actions-${id}`);
+
+    // Reset classes
+    card.classList.remove('locked', 'equipped');
+
+    if (!skill.unlocked) {
+      card.classList.add('locked');
+      starsEl.textContent = '';
+      actionsEl.innerHTML = `<button class="btn-unlock" ${progress.skillPoints < 1 ? 'disabled' : ''} data-action="unlock" data-skill="${id}">解鎖 1🔑</button>`;
+    } else {
+      // Stars
+      const stars = '★'.repeat(skill.level) + '☆'.repeat(3 - skill.level);
+      starsEl.textContent = stars;
+
+      let html = '';
+      if (equipped === id) {
+        card.classList.add('equipped');
+        html += `<button class="btn-equipped-label" disabled>裝備中</button>`;
+      } else {
+        html += `<button class="btn-equip" data-action="equip" data-skill="${id}">裝備</button>`;
+      }
+      if (skill.level < 3) {
+        html += `<button class="btn-upgrade" ${progress.skillPoints < 1 ? 'disabled' : ''} data-action="upgrade" data-skill="${id}">強化 1🔑</button>`;
+      }
+      actionsEl.innerHTML = html;
+    }
+  });
+
+  // Bind action buttons (event delegation)
+  document.querySelectorAll('.skill-card-actions button[data-action]').forEach(btn => {
+    btn.onclick = () => {
+      const action = btn.dataset.action;
+      const skillId = btn.dataset.skill;
+      if (action === 'unlock') {
+        unlockSkill(progress, skillId);
+      } else if (action === 'equip') {
+        equipSkill(progress, skillId);
+      } else if (action === 'upgrade') {
+        upgradeSkill(progress, skillId);
+      }
+      saveProgress(progress);
+      renderSkillsPage();
+      refreshProgressDisplay();
+    };
+  });
+}
+
+/**
+ * 更新遊戲內技能按鈕的名稱與圖示
+ */
+function updateInGameSkillButton() {
+  const nameEl = document.querySelector('.skill-name');
+  if (!nameEl) return;
+  if (!skillState || skillState.isDefaultBoost) {
+    nameEl.textContent = '加速';
+  } else {
+    const def = getSkillDef(skillState.skillId);
+    nameEl.textContent = def ? def.name : '加速';
+  }
+}
+
+/**
+ * 處理技能啟動（按下/點擊）
+ */
+function handleSkillActivation() {
+  if (!player || !skillState || skillState.isDefaultBoost) return;
+  const { canUse } = canUseSkill(skillState, player);
+  if (!canUse) return;
+
+  const def = getSkillDef(skillState.skillId);
+  if (!def) return;
+
+  switch (skillState.skillId) {
+    case 'sprint':
+      executeSprint();
+      break;
+    case 'overdrive':
+      if (skillState.isActive) {
+        // 再次點按提前結束
+        endOverdrive();
+      } else {
+        startOverdrive();
+      }
+      break;
+    case 'tripleDash':
+      executeTripleDash();
+      break;
+    case 'flashStep':
+      startFlashStepChannel();
+      break;
+  }
+}
+
+/**
+ * 處理技能停止（放開）
+ */
+function handleSkillDeactivation() {
+  if (!player || !skillState || skillState.isDefaultBoost) return;
+  if (skillState.skillId === 'flashStep' && skillState.isChanneling) {
+    executeFlashStep();
+  }
+}
+
+// --- Sprint ---
+function executeSprint() {
+  const def = SKILL_DEFS.sprint;
+  const cost = getSkillParam(def, 'massCost', skillState.level);
+  if (player.mass < cost + 5) return;
+
+  player.mass -= cost;
+  showFloatingText(player.body.position.x, player.body.position.y, `-${cost}`, 0xFF4444);
+
+  // Dash in current movement direction
+  const vel = player.body.velocity;
+  let angle = Math.atan2(vel.y, vel.x);
+  if (Math.sqrt(vel.x * vel.x + vel.y * vel.y) < 0.5) {
+    // Use mouse direction if not moving
+    const screenPos = new PIXI.Point(mousePos.x, mousePos.y);
+    const worldMouse = app.stage.toLocal(screenPos);
+    const diff = Matter.Vector.sub(worldMouse, player.body.position);
+    angle = Math.atan2(diff.y, diff.x);
+  }
+
+  const force = def.dashForce;
+  Matter.Body.setVelocity(player.body, {
+    x: Math.cos(angle) * force,
+    y: Math.sin(angle) * force
+  });
+  screenShake = 8;
+  startCooldown(skillState);
+}
+
+// --- Overdrive ---
+function startOverdrive() {
+  skillState.isActive = true;
+  skillState.overdrivePhase = 'rampUp';
+  skillState.overdriveElapsed = 0;
+  skillState.overdriveSpeedMult = 1.01;
+  player.isBoosting = true; // Trigger visual deformation
+}
+
+function endOverdrive() {
+  skillState.overdrivePhase = 'idle';
+  skillState.overdriveSpeedMult = 1.0;
+  skillState.isActive = false;
+  player.isBoosting = false;
+  startCooldown(skillState);
+}
+
+// --- Triple Dash ---
+function executeTripleDash() {
+  const def = SKILL_DEFS.tripleDash;
+  const costPerDash = getSkillParam(def, 'massCostPerDash', skillState.level);
+  if (player.mass < costPerDash * 3 + 5) return;
+
+  skillState.isActive = true;
+  skillState.tripleDashRemaining = 3;
+  skillState.tripleDashTimer = 0;
+  performSingleDash(costPerDash);
+}
+
+function performSingleDash(cost) {
+  if (!player || player.isDestroyed) return;
+  player.mass -= cost;
+  showFloatingText(player.body.position.x, player.body.position.y, `-${cost}`, 0xFF4444);
+
+  // Dash toward current mouse/joystick direction
+  const screenPos = new PIXI.Point(mousePos.x, mousePos.y);
+  const worldMouse = app.stage.toLocal(screenPos);
+  const diff = Matter.Vector.sub(worldMouse, player.body.position);
+  const angle = Math.atan2(diff.y, diff.x);
+
+  const force = SKILL_DEFS.tripleDash.dashForce;
+  Matter.Body.setVelocity(player.body, {
+    x: Math.cos(angle) * force,
+    y: Math.sin(angle) * force
+  });
+  screenShake = 6;
+  skillState.tripleDashRemaining--;
+}
+
+// --- Flash Step ---
+let flashStepIndicator = null;
+let flashStepLine = null;
+
+function startFlashStepChannel() {
+  skillState.isChanneling = true;
+  skillState.isActive = true;
+  timeScale = SKILL_DEFS.flashStep.slowMotionScale;
+
+  // Create indicator circle and line
+  flashStepIndicator = new PIXI.Graphics();
+  flashStepLine = new PIXI.Graphics();
+  app.stage.addChild(flashStepLine);
+  app.stage.addChild(flashStepIndicator);
+}
+
+function executeFlashStep() {
+  if (!skillState.isChanneling) return;
+  skillState.isChanneling = false;
+  timeScale = 1.0;
+
+  const def = SKILL_DEFS.flashStep;
+  const cost = getSkillParam(def, 'massCost', skillState.level);
+  if (player.mass < cost + 5) {
+    cleanupFlashStepVisuals();
+    skillState.isActive = false;
+    return;
+  }
+
+  player.mass -= cost;
+  showFloatingText(player.body.position.x, player.body.position.y, `-${cost}`, 0xFF4444);
+
+  // Calculate target position
+  const screenPos = new PIXI.Point(mousePos.x, mousePos.y);
+  const worldMouse = app.stage.toLocal(screenPos);
+  const radius = calculateRadius(player.mass);
+  const maxDist = radius * def.maxRangeMultiplier;
+
+  const diff = Matter.Vector.sub(worldMouse, player.body.position);
+  const dist = Matter.Vector.magnitude(diff);
+  const clampedDist = Math.min(dist, maxDist);
+  const norm = Matter.Vector.normalise(diff);
+  const targetX = player.body.position.x + norm.x * clampedDist;
+  const targetY = player.body.position.y + norm.y * clampedDist;
+
+  // Kill entities along the path
+  const startPos = { x: player.body.position.x, y: player.body.position.y };
+  entities.forEach(ent => {
+    if (ent === player || ent.isDestroyed || ent.isPlayer) return;
+    if (ent.mass >= player.mass) return; // Can only kill smaller
+    const entPos = ent.body.position;
+    // Point-to-segment distance
+    const d = pointToSegmentDist(entPos, startPos, { x: targetX, y: targetY });
+    const entRadius = calculateRadius(ent.mass);
+    if (d < radius + entRadius) {
+      player.mass += ent.mass * 0.5;
+      killCount++;
+      screenShake = 15;
+      shatterEntity(ent);
+    }
+  });
+
+  // Teleport
+  Matter.Body.setPosition(player.body, { x: targetX, y: targetY });
+  Matter.Body.setVelocity(player.body, { x: 0, y: 0 });
+  player.protectionTime = Math.max(player.protectionTime, 30); // Brief invincibility
+
+  // VFX
+  triggerRespawnVFX(targetX, targetY);
+  screenShake = 20;
+  cleanupFlashStepVisuals();
+  startCooldown(skillState);
+  skillState.isActive = false;
+}
+
+function cleanupFlashStepVisuals() {
+  if (flashStepIndicator) { app.stage.removeChild(flashStepIndicator); flashStepIndicator = null; }
+  if (flashStepLine) { app.stage.removeChild(flashStepLine); flashStepLine = null; }
+}
+
+/** Point-to-segment distance helper */
+function pointToSegmentDist(p, a, b) {
+  const ab = { x: b.x - a.x, y: b.y - a.y };
+  const ap = { x: p.x - a.x, y: p.y - a.y };
+  const t = Math.max(0, Math.min(1, (ap.x * ab.x + ap.y * ab.y) / (ab.x * ab.x + ab.y * ab.y)));
+  const proj = { x: a.x + t * ab.x, y: a.y + t * ab.y };
+  return Math.sqrt((p.x - proj.x) ** 2 + (p.y - proj.y) ** 2);
+}
+
+/**
+ * 每幀更新技能效果（Overdrive 漸增、Triple Dash 連擊、Flash Step 指示器）
+ */
+function updateSkillEffects(delta) {
+  if (!skillState || !player || player.isDestroyed) return;
+  const dt = delta.deltaTime;
+
+  // Overdrive ramp-up and sustain
+  if (skillState.skillId === 'overdrive' && skillState.isActive) {
+    const def = SKILL_DEFS.overdrive;
+    skillState.overdriveElapsed += delta.elapsedMS;
+
+    if (skillState.overdrivePhase === 'rampUp') {
+      const progress = Math.min(1, skillState.overdriveElapsed / def.rampUpDuration);
+      skillState.overdriveSpeedMult = 1.0 + progress * (def.maxSpeedMult - 1.0);
+      if (progress >= 1) {
+        skillState.overdrivePhase = 'sustain';
+        skillState.overdriveElapsed = 0;
+      }
+      player.isBoosting = true;
+    } else if (skillState.overdrivePhase === 'sustain') {
+      const sustainDur = getSkillParam(def, 'sustainDuration', skillState.level);
+      skillState.overdriveSpeedMult = def.maxSpeedMult;
+      if (skillState.overdriveElapsed >= sustainDur) {
+        endOverdrive();
+      }
+      player.isBoosting = true;
+    }
+    // Trigger boost particles
+    triggerBoostParticles(player);
+  }
+
+  // Triple Dash interval
+  if (skillState.skillId === 'tripleDash' && skillState.isActive && skillState.tripleDashRemaining > 0) {
+    skillState.tripleDashTimer += delta.elapsedMS;
+    if (skillState.tripleDashTimer >= SKILL_DEFS.tripleDash.dashInterval) {
+      skillState.tripleDashTimer = 0;
+      const costPerDash = getSkillParam(SKILL_DEFS.tripleDash, 'massCostPerDash', skillState.level);
+      performSingleDash(costPerDash);
+      if (skillState.tripleDashRemaining <= 0) {
+        skillState.isActive = false;
+        startCooldown(skillState);
+      }
+    }
+  }
+
+  // Flash Step channeling visuals
+  if (skillState.skillId === 'flashStep' && skillState.isChanneling && flashStepIndicator && flashStepLine) {
+    const radius = calculateRadius(player.mass);
+    const maxDist = radius * SKILL_DEFS.flashStep.maxRangeMultiplier;
+
+    const screenPos = new PIXI.Point(mousePos.x, mousePos.y);
+    const worldMouse = app.stage.toLocal(screenPos);
+    const diff = Matter.Vector.sub(worldMouse, player.body.position);
+    const dist = Matter.Vector.magnitude(diff);
+    const clampedDist = Math.min(dist, maxDist);
+    const norm = Matter.Vector.normalise(diff);
+    const tx = player.body.position.x + norm.x * clampedDist;
+    const ty = player.body.position.y + norm.y * clampedDist;
+
+    // Draw target circle
+    flashStepIndicator.clear();
+    flashStepIndicator.circle(tx, ty, radius);
+    flashStepIndicator.stroke({ width: 3, color: 0xFFFFFF, alpha: 0.7 });
+
+    // Draw dashed line
+    flashStepLine.clear();
+    const segments = 12;
+    for (let i = 0; i < segments; i++) {
+      if (i % 2 === 0) {
+        const s = i / segments;
+        const e = (i + 1) / segments;
+        const sx = player.body.position.x + norm.x * clampedDist * s;
+        const sy = player.body.position.y + norm.y * clampedDist * s;
+        const ex = player.body.position.x + norm.x * clampedDist * e;
+        const ey = player.body.position.y + norm.y * clampedDist * e;
+        flashStepLine.moveTo(sx, sy);
+        flashStepLine.lineTo(ex, ey);
+      }
+    }
+    flashStepLine.stroke({ width: 2, color: 0xFFFFFF, alpha: 0.4 });
+  }
+}
+
+/**
+ * 更新遊戲內技能冷卻 UI（按鈕上的遮罩與倒數）
+ */
+function updateCooldownUI() {
+  if (!skillState || skillState.isDefaultBoost) return;
+  const skillBtn = document.getElementById('skill-btn');
+  let overlay = skillBtn.querySelector('.cooldown-overlay');
+  const cdProgress = getCooldownProgress(skillState);
+
+  if (cdProgress > 0) {
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.className = 'cooldown-overlay';
+      overlay.innerHTML = '<span class="cooldown-text"></span>';
+      skillBtn.appendChild(overlay);
+    }
+    const secs = Math.ceil(skillState.cooldownRemaining / 1000);
+    overlay.querySelector('.cooldown-text').textContent = `${secs}s`;
+    // Clip from bottom upwards
+    const pct = cdProgress * 100;
+    overlay.style.clipPath = `inset(${100 - pct}% 0 0 0)`;
+    skillBtn.classList.add('disabled');
+  } else {
+    if (overlay) { overlay.remove(); }
+    // Also check if mass is insufficient
+    const { canUse } = canUseSkill(skillState, player || { mass: 0 });
+    if (!canUse && !skillState.isActive) {
+      skillBtn.classList.add('disabled');
+    } else {
+      skillBtn.classList.remove('disabled');
+    }
+  }
+}
+
+/**
+ * 顯示結算獎勵畫面（勝利或敗場）
+ */
+function showRewardScreen(isVictory) {
+  const xpReward = calculateXPReward(isVictory, elapsedTime, killCount);
+  const goldReward = calculateGoldReward(isVictory, killCount);
+
+  const result = grantXP(progress, xpReward);
+  grantGold(progress, goldReward);
+  saveProgress(progress);
+
+  // Use correct element IDs based on screen
+  const prefix = isVictory ? '' : 'go-';
+  document.getElementById(`${prefix}reward-xp`).textContent = `+${xpReward} XP`;
+  document.getElementById(`${prefix}reward-gold`).textContent = `+${goldReward} 🪙`;
+  document.getElementById(`${prefix}reward-kills`).textContent = `×${killCount}`;
+  document.getElementById(`${prefix}reward-level-label`).textContent = `Lv.${progress.level}`;
+
+  const pct = getLevelProgress(progress);
+  document.getElementById(`${prefix}reward-xp-bar-fill`).style.width = `${Math.round(pct * 100)}%`;
+
+  // Show level up banner
+  const banner = document.getElementById(`${prefix}level-up-banner`);
+  if (result.levelsGained > 0) {
+    banner.style.display = 'block';
+  } else {
+    banner.style.display = 'none';
+  }
+}
 
 init();
 

@@ -74,17 +74,122 @@
     <div id="start-menu">
       <div class="menu-container">
         <div class="menu-content glass">
-          <h1 class="menu-title">NULL VECTOR</h1>
-          <p class="menu-subtitle">SURVIVE. GROW. WIN.</p>
+          <!-- Tab 內容區域 -->
 
-          <input type="text" id="player-name-input" maxlength="12" placeholder="輸入玩家名稱" value="PLAYER">
+          <!-- === 首頁 Tab === -->
+          <div id="tab-home" class="tab-page active">
+            <h1 class="menu-title">NULL VECTOR</h1>
+            <p class="menu-subtitle">SURVIVE. GROW. WIN.</p>
 
-          <button id="start-btn" class="primary-btn">開始遊戲</button>
-          <button id="install-pwa-btn" class="secondary-btn" style="display: none;">安裝應用程式</button>
+            <!-- 等級 & 金幣 -->
+            <div class="progress-bar-row">
+              <div class="level-display">
+                <span id="level-label" class="level-badge">Lv.1</span>
+                <div class="xp-bar-container">
+                  <div id="xp-bar-fill" class="xp-bar-fill" style="width: 0%"></div>
+                </div>
+                <span id="xp-percent" class="xp-percent">0%</span>
+              </div>
+              <div class="gold-display">
+                <span class="gold-icon">🪙</span>
+                <span id="gold-amount">0</span>
+              </div>
+            </div>
 
-          <div class="history-panel">
-            <div class="history-label">歷史紀錄 (獲勝時間)</div>
-            <div id="history-list"></div>
+            <input type="text" id="player-name-input" maxlength="12" placeholder="輸入玩家名稱" value="PLAYER">
+
+            <button id="start-btn" class="primary-btn">開始遊戲</button>
+            <button id="install-pwa-btn" class="secondary-btn" style="display: none;">安裝應用程式</button>
+
+            <div class="history-panel">
+              <div class="history-label">歷史紀錄 (獲勝時間)</div>
+              <div id="history-list"></div>
+            </div>
+          </div>
+
+          <!-- === 技能 Tab === -->
+          <div id="tab-skills" class="tab-page">
+            <h2 class="tab-page-title">技 能</h2>
+            <div class="skill-points-display">
+              技能點剩餘：<span id="skill-points-count">0</span>
+            </div>
+
+            <!-- 裝備中的技能 -->
+            <div id="equipped-skill-banner" class="equipped-skill-banner">
+              <div class="equipped-label">裝備中</div>
+              <div class="equipped-info">
+                <span id="equipped-skill-icon" class="equipped-icon">—</span>
+                <span id="equipped-skill-name">預設加速</span>
+                <span id="equipped-skill-level" class="skill-level-badge"></span>
+              </div>
+              <button id="unequip-skill-btn" class="text-btn" style="display:none">卸下</button>
+            </div>
+
+            <!-- 技能卡片網格 -->
+            <div class="skill-grid">
+              <div class="skill-card" data-skill="sprint">
+                <div class="skill-card-icon">↗</div>
+                <div class="skill-card-name">衝刺</div>
+                <div class="skill-card-desc">消耗固定質量瞬間衝刺</div>
+                <div class="skill-card-stars" id="stars-sprint"></div>
+                <div class="skill-card-actions" id="actions-sprint"></div>
+              </div>
+              <div class="skill-card" data-skill="overdrive">
+                <div class="skill-card-icon">⚡</div>
+                <div class="skill-card-name">超級加速</div>
+                <div class="skill-card-desc">不消耗質量，漸增至150%加速</div>
+                <div class="skill-card-stars" id="stars-overdrive"></div>
+                <div class="skill-card-actions" id="actions-overdrive"></div>
+              </div>
+              <div class="skill-card" data-skill="tripleDash">
+                <div class="skill-card-icon">≡</div>
+                <div class="skill-card-name">三段衝刺</div>
+                <div class="skill-card-desc">700ms間隔連續三次方向衝刺</div>
+                <div class="skill-card-stars" id="stars-tripleDash"></div>
+                <div class="skill-card-actions" id="actions-tripleDash"></div>
+              </div>
+              <div class="skill-card" data-skill="flashStep">
+                <div class="skill-card-icon">◎</div>
+                <div class="skill-card-name">閃現</div>
+                <div class="skill-card-desc">長按瞄準，瞬移並擊殺路徑敵人</div>
+                <div class="skill-card-stars" id="stars-flashStep"></div>
+                <div class="skill-card-actions" id="actions-flashStep"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- === 皮膚 Tab === -->
+          <div id="tab-skins" class="tab-page">
+            <h2 class="tab-page-title">皮 膚 商 店</h2>
+            <div class="skin-gold-display">
+              <span class="gold-icon">🪙</span>
+              <span id="skin-gold-amount">0</span>
+            </div>
+
+            <div class="skin-grid">
+              <div class="skin-card active">
+                <div class="skin-preview default-skin"></div>
+                <div class="skin-card-name">幽靈白</div>
+                <div class="skin-card-status">使用中</div>
+              </div>
+              <!-- 更多皮膚在此擴充 -->
+            </div>
+          </div>
+
+          <!-- Tab 底部導航列 -->
+          <div class="tab-bar">
+            <button class="tab-btn active" data-tab="home">
+              <span class="tab-icon">🏠</span>
+              <span class="tab-label">首頁</span>
+            </button>
+            <button class="tab-btn" data-tab="skills">
+              <span class="tab-icon">⚡</span>
+              <span class="tab-label">技能</span>
+            </button>
+            <button class="tab-btn" data-tab="skins">
+              <span class="tab-icon">🎨</span>
+              <span class="tab-label">皮膚</span>
+            </button>
           </div>
         </div>
 
@@ -107,7 +212,7 @@
                   <path d="M-15 5 L0 -15 L15 5 L8 5 L8 15 L-8 15 L-8 5 Z" fill="#FFF" />
                 </svg>
               </div>
-              <div class="guide-text"><b>持續加速</b><br>長按以大幅提升移動速度，期間會緩慢消耗質量。</div>
+              <div class="guide-text"><b>技能</b><br>透過升級解鎖技能，取代預設加速。可在技能頁面裝備與強化。</div>
             </div>
           </div>
 
@@ -171,6 +276,29 @@
       <div class="victory-content">
         <h1 class="victory-title">獲得勝利</h1>
         <p id="victory-time-label"></p>
+        <div id="reward-panel" class="reward-panel">
+          <div class="reward-row">
+            <span class="reward-label">經驗值</span>
+            <span id="reward-xp" class="reward-value xp-color">+0 XP</span>
+          </div>
+          <div id="reward-xp-bar-row" class="reward-xp-bar-row">
+            <span id="reward-level-label" class="level-badge">Lv.1</span>
+            <div class="xp-bar-container">
+              <div id="reward-xp-bar-fill" class="xp-bar-fill" style="width: 0%"></div>
+            </div>
+          </div>
+          <div id="level-up-banner" class="level-up-banner" style="display:none">
+            <span>LEVEL UP!</span>
+          </div>
+          <div class="reward-row">
+            <span class="reward-label">金幣</span>
+            <span id="reward-gold" class="reward-value gold-color">+0 🪙</span>
+          </div>
+          <div class="reward-row">
+            <span class="reward-label">淘汰數</span>
+            <span id="reward-kills" class="reward-value">×0</span>
+          </div>
+        </div>
         <button onclick="location.reload()" class="end-game-btn">重新開始</button>
       </div>
     </div>
@@ -211,6 +339,29 @@
     <div id="game-over">
       <h1 class="game-over-title">遊戲結束</h1>
       <p class="game-over-subtitle">已被淘汰</p>
+      <div id="gameover-reward-panel" class="reward-panel">
+        <div class="reward-row">
+          <span class="reward-label">經驗值</span>
+          <span id="go-reward-xp" class="reward-value xp-color">+0 XP</span>
+        </div>
+        <div id="go-reward-xp-bar-row" class="reward-xp-bar-row">
+          <span id="go-reward-level-label" class="level-badge">Lv.1</span>
+          <div class="xp-bar-container">
+            <div id="go-reward-xp-bar-fill" class="xp-bar-fill" style="width: 0%"></div>
+          </div>
+        </div>
+        <div id="go-level-up-banner" class="level-up-banner" style="display:none">
+          <span>LEVEL UP!</span>
+        </div>
+        <div class="reward-row">
+          <span class="reward-label">金幣</span>
+          <span id="go-reward-gold" class="reward-value gold-color">+0 🪙</span>
+        </div>
+        <div class="reward-row">
+          <span class="reward-label">淘汰數</span>
+          <span id="go-reward-kills" class="reward-value">×0</span>
+        </div>
+      </div>
       <button class="end-game-btn" onclick="restartGame()">重新開始</button>
     </div>
   </div>
