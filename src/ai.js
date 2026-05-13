@@ -1,8 +1,9 @@
 import * as Matter from 'matter-js';
-import { CONFIG, calculateRadius } from './constants.js';
+import { CONFIG } from './constants.js';
 
 /**
  * NPC AI Decision Logic - Overhauled for "God-like" efficiency
+ * Focuses on competitive survival, hunting, and foraging.
  */
 export function updateAI(npc, delta, gameState) {
   const { isGameOver } = gameState;
@@ -32,7 +33,7 @@ export function updateAI(npc, delta, gameState) {
     y: Math.sin(npc.currentAngle)
   };
   
-  npc.isBoosting = npc.noBoost ? false : (npc.isAlwaysBoosting ? true : intention.isBoosting);
+  npc.isBoosting = intention.isBoosting;
   applyNPCForce(npc, moveVec, intention.power);
 }
 
@@ -41,20 +42,6 @@ function calculateIntention(npc, { entities, viruses, nodes, powerups }) {
   const visionRange = CONFIG.visionRange;
   const fleeRange = 600;
 
-  // DEMO SCRIPTED LOGIC
-  if (npc.isDemoScripted && npc.mass >= CONFIG.virusMinMass) {
-    let nearestVirus = null;
-    let minDist = Infinity;
-    viruses.forEach(v => {
-      const d = Matter.Vector.magnitude(Matter.Vector.sub(v.body.position, npcPos));
-      if (d < minDist) { minDist = d; nearestVirus = v; }
-    });
-    if (nearestVirus) {
-      const dir = Matter.Vector.normalise(Matter.Vector.sub(nearestVirus.body.position, npcPos));
-      return { dir, power: 1.0, isBoosting: true };
-    }
-  }
-
   let fleeForce = { x: 0, y: 0 };
   let huntForce = { x: 0, y: 0 };
   let forageForce = { x: 0, y: 0 };
@@ -62,7 +49,6 @@ function calculateIntention(npc, { entities, viruses, nodes, powerups }) {
   let wallAvoidance = { x: 0, y: 0 };
   
   let nearestThreatDist = Infinity;
-  let isBoosting = false;
 
   // 0. WALL AVOIDANCE (Built into intention)
   const margin = 250;
@@ -75,12 +61,10 @@ function calculateIntention(npc, { entities, viruses, nodes, powerups }) {
   powerups.forEach(p => {
     const diff = Matter.Vector.sub(npc.body.position, p.body.position);
     const dist = Matter.Vector.magnitude(diff);
-    // 縮小避讓範圍並增加側向力，讓 NPC 「繞過」而非「對峙」
     const avoidRange = 350;
     if (dist < avoidRange) {
       const weight = Math.pow((avoidRange - dist) / avoidRange, 2);
       const norm = Matter.Vector.normalise(diff);
-      // 側向力 (Tangent Force)
       const tangent = { x: -norm.y, y: norm.x };
       const avoidVec = Matter.Vector.add(norm, Matter.Vector.mult(tangent, 0.6));
       fleeForce = Matter.Vector.add(fleeForce, Matter.Vector.mult(avoidVec, weight * 15));
@@ -97,7 +81,7 @@ function calculateIntention(npc, { entities, viruses, nodes, powerups }) {
       if (dist < fleeRange && other.mass > npc.mass * 1.25) {
         const weight = Math.pow((fleeRange - dist) / fleeRange, 2);
         const norm = Matter.Vector.normalise(diff);
-        const tangent = { x: -norm.y, y: norm.x }; // Add some tangential steering to avoid head-on
+        const tangent = { x: -norm.y, y: norm.x };
         const steering = Matter.Vector.add(norm, Matter.Vector.mult(tangent, 0.4));
         fleeForce = Matter.Vector.add(fleeForce, Matter.Vector.mult(steering, weight * 12));
         if (dist < nearestThreatDist) nearestThreatDist = dist;
@@ -118,14 +102,13 @@ function calculateIntention(npc, { entities, viruses, nodes, powerups }) {
     const dist = Matter.Vector.magnitude(diff);
     if (dist < 600) {
       const norm = Matter.Vector.normalise(diff);
-      if (npc.mass >= CONFIG.virusMinMass && !npc.avoidViruses) {
+      if (npc.mass >= CONFIG.virusMinMass) {
         if (nearestThreatDist > 1200) {
           shatterForce = Matter.Vector.add(shatterForce, Matter.Vector.mult(Matter.Vector.neg(norm), 3));
         } else {
           fleeForce = Matter.Vector.add(fleeForce, Matter.Vector.mult(norm, 6));
         }
       } else {
-        // NPC 2 (avoidViruses) or small NPC: always flee viruses if close
         fleeForce = Matter.Vector.add(fleeForce, Matter.Vector.mult(norm, 8));
       }
     }
@@ -137,7 +120,6 @@ function calculateIntention(npc, { entities, viruses, nodes, powerups }) {
     let bestNode = null;
     let maxScore = -1;
     nodes.forEach(node => {
-      // 禁止去吃出現在稀罕物威脅範圍內的點
       const nearPowerup = powerups.some(p => Matter.Vector.magnitudeSquared(Matter.Vector.sub(node.body.position, p.body.position)) < 500 * 500);
       if (nearPowerup) return;
 
@@ -151,7 +133,7 @@ function calculateIntention(npc, { entities, viruses, nodes, powerups }) {
     });
     if (bestNode) {
       npc.targetNodeId = bestNode.body.id;
-      npc.targetNodeExpireTime = Date.now() + 1500; // Increased stickiness
+      npc.targetNodeExpireTime = Date.now() + 1500;
     }
   } else if (Date.now() > (npc.targetNodeExpireTime || 0)) {
     npc.targetNodeId = null;
@@ -163,7 +145,7 @@ function calculateIntention(npc, { entities, viruses, nodes, powerups }) {
     forageForce = Matter.Vector.add(forageForce, Matter.Vector.mult(nodeDir, 3.5));
   }
 
-  // 5. COMBINE FORCES (Priority Weighted)
+  // 5. COMBINE FORCES
   let combined = Matter.Vector.add(wallAvoidance, Matter.Vector.mult(fleeForce, 1.5));
   
   const fleeMag = Matter.Vector.magnitude(fleeForce);
@@ -172,45 +154,13 @@ function calculateIntention(npc, { entities, viruses, nodes, powerups }) {
     combined = Matter.Vector.add(combined, Matter.Vector.mult(forageForce, 0.8));
     combined = Matter.Vector.add(combined, shatterForce);
   } else {
-    // If fleeing, dramatically reduce interest in forage
     combined = Matter.Vector.add(combined, Matter.Vector.mult(forageForce, 0.1));
   }
 
   let finalDir = combined;
   if (Matter.Vector.magnitude(combined) < 0.01) {
     const wanderTime = Date.now() * 0.0005; 
-    finalDir = { x: Math.cos(wanderTime + npc.wobbleOffset), y: Math.sin(wanderTime + npc.wobbleOffset) };
-  }
-
-  // DEMO OPPORTUNIST LOGIC
-  if (npc.isOpportunist) {
-    // 1. Prioritize special nodes (virus fragments)
-    let bestSpecialNode = null;
-    let maxSpecialScore = -1;
-    nodes.forEach(node => {
-      if (!node.isSpecial) return;
-      const d = Matter.Vector.magnitude(Matter.Vector.sub(node.body.position, npcPos));
-      if (d < 1500) {
-        const score = 100 / (d + 10);
-        if (score > maxSpecialScore) { maxSpecialScore = score; bestSpecialNode = node; }
-      }
-    });
-    if (bestSpecialNode) {
-      const dir = Matter.Vector.normalise(Matter.Vector.sub(bestSpecialNode.body.position, npcPos));
-      return { dir, power: 1.0, isBoosting: false };
-    }
-
-    // 2. Target the scripted NPC (NPC 1) - Aggressive stalking
-    const targetNPC = entities.find(e => e.isDemoScripted);
-    if (targetNPC && !targetNPC.isDestroyed) {
-      const d = Matter.Vector.magnitude(Matter.Vector.sub(targetNPC.body.position, npcPos));
-      // Increase detection range for the demo hunter
-      if (d < 3000) {
-        // Direct chase even if cannot eat, to show intent
-        const dir = Matter.Vector.normalise(Matter.Vector.sub(targetNPC.body.position, npcPos));
-        return { dir, power: 1.0, isBoosting: false };
-      }
-    }
+    finalDir = { x: Math.cos(wanderTime + (npc.wobbleOffset || 0)), y: Math.sin(wanderTime + (npc.wobbleOffset || 0)) };
   }
 
   return { 
@@ -224,8 +174,6 @@ function applyNPCForce(npc, moveVec, multiplier) {
   const speedBonus = npc.isSmart ? 0.95 : 0.85;
   const efficiencyMult = npc.efficiency || 1.0;
   const baseForce = CONFIG.baseForce * Math.pow(npc.mass / 30, 0.8) * speedBonus * efficiencyMult; 
-  
-  // Boosting force
   const boostMult = npc.isBoosting ? 1.5 : 1.0; 
   Matter.Body.applyForce(npc.body, npc.body.position, Matter.Vector.mult(moveVec, baseForce * multiplier * boostMult));
 }

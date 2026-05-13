@@ -4,6 +4,7 @@ import * as Matter from 'matter-js';
 import * as PIXI from 'pixi.js';
 import { CONFIG, calculateRadius } from './constants.js';
 import { updateAI } from './ai.js';
+import { updateDemoAI } from './demo-ai.js';
 import {
   loadProgress, saveProgress, getLevelProgress, grantXP, grantGold,
   calculateXPReward, calculateGoldReward, unlockSkill, equipSkill, upgradeSkill,
@@ -695,7 +696,12 @@ function update(delta) {
           ent.spawnDelay -= delta.elapsedMS;
           Matter.Body.setVelocity(ent.body, { x: 0, y: 0 });
         } else {
-          updateAI(ent, delta, { entities, viruses, nodes, powerups, isGameOver });
+          // Use Demo AI if it's a menu-specific NPC
+          if (ent.isDemoScripted || ent.isOpportunist || ent.isAlwaysBoosting) {
+            updateDemoAI(ent, delta, { entities, viruses, nodes, powerups, isGameOver });
+          } else {
+            updateAI(ent, delta, { entities, viruses, nodes, powerups, isGameOver });
+          }
         }
       }
 
