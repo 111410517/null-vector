@@ -20,11 +20,12 @@ export const SKILL_DEFS = {
     description: '消耗固定質量，朝當前方向瞬間衝刺',
     type: 'instant', // instant | toggle | channel
     // 各等級參數 [level 1, level 2, level 3]
-    massCost: [15, 15, 10],
-    cooldown: [2500, 2000, 2000],   // ms
-    minMass: 20,
-    // 衝刺力度倍率（相對於 baseForce）
+    massCost: [0, 0, 0],
+    cooldown: [2000, 2000, 2000],   // 增加至 2s
+    minMass: 0,
+    // 衝刺力度倍率（削弱）
     dashForce: 80,
+    maxCharges: 2,
   },
 
   overdrive: {
@@ -34,12 +35,12 @@ export const SKILL_DEFS = {
     description: '不消耗質量，加速效果從 1% 漸增至 150%',
     type: 'toggle',
     massCost: [0, 0, 0],
-    cooldown: [6000, 6000, 4500],   // ms
+    cooldown: [1200, 1100, 1000],   // 再次減半
     minMass: 0,
     // 加速漸增時間（ms）、持續時間（ms）
-    rampUpDuration: 1000,           // 1s 從 1% → 150%
-    sustainDuration: [1500, 2000, 2000], // ms
-    maxSpeedMult: 2.5,              // 150% bonus = 2.5x
+    rampUpDuration: 1000,           // 回調至 1s
+    sustainDuration: [3000, 3000, 3000], // 維持 3s
+    maxSpeedMult: 3.5,
   },
 
   tripleDash: {
@@ -48,12 +49,12 @@ export const SKILL_DEFS = {
     icon: '≡',
     description: '以 700ms 間隔朝指向連續衝刺三次',
     type: 'instant',
-    massCostPerDash: [8, 5, 5],     // 每段消耗
-    cooldown: [8000, 8000, 6000],   // ms
-    minMass: 30,
+    massCostPerDash: [0, 0, 0],     // 質量消耗依目前質量而定 (main.js 處理)
+    cooldown: [3000, 2500, 2200],   // ms (CD 減半)
+    minMass: 10,
     dashCount: 3,
-    dashInterval: 700,              // ms
-    dashForce: 60,
+    dashInterval: 600,              // 縮短至 600ms
+    dashForce: 90,
   },
 
   flashStep: {
@@ -62,13 +63,14 @@ export const SKILL_DEFS = {
     icon: '◎',
     description: '長按瞄準，放開瞬移至目標點並擊殺路徑上敵人',
     type: 'channel',                // 長按施放
-    massCost: [30, 20, 20],
-    cooldown: [12000, 12000, 9000], // ms
-    minMass: 50,
-    maxRangeMultiplier: 8,          // 最大距離 = 玩家半徑 × 8
-    teleportDuration: 150,          // ms 移動動畫時長
-    slowMotionScale: 0.3,           // NPC 減速至 30%
-    postInvincibility: 500,         // ms 到達後無敵時間
+    massCost: [0, 0, 0],            // 不消耗能量
+    cooldown: [2000, 2000, 2000],   // 減至 2s
+    maxCharges: 2,                  // 可充能 2 次
+    minMass: 0,
+    maxRangeMultiplier: 10,
+    teleportDuration: 150,
+    slowMotionScale: 0.05,          // 時緩大幅增強 (5%)
+    postInvincibility: 500,
   },
 };
 
@@ -103,6 +105,9 @@ export function createSkillState(equippedSkillId, skillLevel) {
     flashTarget: null, // { x, y }
     // 通用：是否為預設加速模式
     isDefaultBoost: equippedSkillId === null,
+    // 充能機制
+    charges: (equippedSkillId && SKILL_DEFS[equippedSkillId].maxCharges) || 1,
+    maxCharges: (equippedSkillId && SKILL_DEFS[equippedSkillId].maxCharges) || 1,
   };
 }
 
@@ -147,7 +152,7 @@ export function canUseSkill(skillState, player) {
   const def = SKILL_DEFS[skillState.skillId];
   if (!def) return { canUse: false, reason: '技能不存在' };
 
-  if (skillState.cooldownRemaining > 0) {
+  if (skillState.charges <= 0) {
     return { canUse: false, reason: '冷卻中' };
   }
   if (skillState.isActive) {
@@ -174,8 +179,19 @@ export function canUseSkill(skillState, player) {
  * @param {number} deltaMs - 經過的毫秒數
  */
 export function updateSkillCooldown(skillState, deltaMs) {
-  if (skillState.cooldownRemaining > 0) {
-    skillState.cooldownRemaining = Math.max(0, skillState.cooldownRemaining - deltaMs);
+  if (skillState.charges < skillState.maxCharges) {
+    if (skillState.cooldownRemaining > 0) {
+      skillState.cooldownRemaining = Math.max(0, skillState.cooldownRemaining - deltaMs);
+    }
+    if (skillState.cooldownRemaining <= 0) {
+      skillState.charges++;
+      if (skillState.charges < skillState.maxCharges) {
+        const def = SKILL_DEFS[skillState.skillId];
+        if (def) {
+          skillState.cooldownRemaining = getSkillParam(def, 'cooldown', skillState.level);
+        }
+      }
+    }
   }
 }
 
@@ -186,7 +202,13 @@ export function updateSkillCooldown(skillState, deltaMs) {
 export function startCooldown(skillState) {
   const def = SKILL_DEFS[skillState.skillId];
   if (!def) return;
-  skillState.cooldownRemaining = getSkillParam(def, 'cooldown', skillState.level);
+  
+  // 如果原本是滿的，開始計時第一個充能的恢復
+  if (skillState.charges === skillState.maxCharges) {
+    skillState.cooldownRemaining = getSkillParam(def, 'cooldown', skillState.level);
+  }
+  
+  skillState.charges = Math.max(0, skillState.charges - 1);
   skillState.isActive = false;
 }
 

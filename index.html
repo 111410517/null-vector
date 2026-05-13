@@ -75,19 +75,30 @@
       <div class="menu-container">
         <!-- 左側輔助面板 (紀錄/技能/皮膚) -->
         <div class="secondary-panel glass">
+          <!-- 左側 Tab 導航 (移至上方) -->
+          <div class="tab-bar">
+            <button class="tab-btn active" data-tab="history">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            </button>
+            <button class="tab-btn" data-tab="skills">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
+            </button>
+            <button class="tab-btn" data-tab="skins">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 00-10 10 10 10 0 0010 10 10 10 0 0010-10A10 10 0 0012 2z"></path><path d="M12 8a4 4 0 100 8 4 4 0 000-8z"></path></svg>
+            </button>
+          </div>
+
           <!-- === 紀錄 Tab === -->
           <div id="tab-history" class="tab-page active">
-            <h2 class="tab-page-title">歷史紀錄</h2>
             <div class="history-panel">
-              <div class="history-label">近期獲勝時間</div>
+              <div class="history-label">近期最佳時間</div>
               <div id="history-list"></div>
             </div>
           </div>
 
           <!-- === 技能 Tab === -->
           <div id="tab-skills" class="tab-page">
-            <h2 class="tab-page-title">技能強化</h2>
-            <div class="skill-points-display">
+            <div class="skill-points-display" style="display:none">
               技能點剩餘：<span id="skill-points-count">0</span>
             </div>
 
@@ -107,29 +118,25 @@
               <div class="skill-card" data-skill="sprint">
                 <div class="skill-card-icon">↗</div>
                 <div class="skill-card-name">衝刺</div>
-                <div class="skill-card-desc">消耗固定質量瞬間衝刺</div>
-                <div class="skill-card-stars" id="stars-sprint"></div>
+                <div class="skill-card-desc">朝移動方向瞬間位移，擁有 2 次充能。</div>
                 <div class="skill-card-actions" id="actions-sprint"></div>
               </div>
               <div class="skill-card" data-skill="overdrive">
                 <div class="skill-card-icon">⚡</div>
                 <div class="skill-card-name">超級加速</div>
-                <div class="skill-card-desc">不消耗質量，漸增至150%加速</div>
-                <div class="skill-card-stars" id="stars-overdrive"></div>
+                <div class="skill-card-desc">速度隨時間大幅遞增且不消耗質量。</div>
                 <div class="skill-card-actions" id="actions-overdrive"></div>
               </div>
               <div class="skill-card" data-skill="tripleDash">
                 <div class="skill-card-icon">≡</div>
                 <div class="skill-card-name">三段衝刺</div>
-                <div class="skill-card-desc">700ms間隔連續三次方向衝刺</div>
-                <div class="skill-card-stars" id="stars-tripleDash"></div>
+                <div class="skill-card-desc">以極短間隔朝指向方向連續衝刺三次。</div>
                 <div class="skill-card-actions" id="actions-tripleDash"></div>
               </div>
               <div class="skill-card" data-skill="flashStep">
                 <div class="skill-card-icon">◎</div>
                 <div class="skill-card-name">閃現</div>
-                <div class="skill-card-desc">長按瞄準，瞬移並擊殺路徑敵人</div>
-                <div class="skill-card-stars" id="stars-flashStep"></div>
+                <div class="skill-card-desc">蓄力進入時緩，位移至落點並收割敵機，2 次充能。</div>
                 <div class="skill-card-actions" id="actions-flashStep"></div>
               </div>
             </div>
@@ -137,7 +144,6 @@
 
           <!-- === 皮膚 Tab === -->
           <div id="tab-skins" class="tab-page">
-            <h2 class="tab-page-title">皮膚商店</h2>
             <div class="skin-gold-display">
               <span class="gold-icon">🪙</span>
               <span id="skin-gold-amount">0</span>
@@ -149,22 +155,6 @@
                 <div class="skin-card-status">使用中</div>
               </div>
             </div>
-          </div>
-
-          <!-- 左側 Tab 導航 -->
-          <div class="tab-bar">
-            <button class="tab-btn active" data-tab="history">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-              <span class="tab-label">紀錄</span>
-            </button>
-            <button class="tab-btn" data-tab="skills">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
-              <span class="tab-label">技能</span>
-            </button>
-            <button class="tab-btn" data-tab="skins">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 00-10 10 10 10 0 0010 10 10 10 0 0010-10A10 10 0 0012 2z"></path><path d="M12 8a4 4 0 100 8 4 4 0 000-8z"></path></svg>
-              <span class="tab-label">皮膚</span>
-            </button>
           </div>
         </div>
 
@@ -293,7 +283,7 @@
           </div>
           <div class="reward-row">
             <span class="reward-label">金幣</span>
-            <span id="reward-gold" class="reward-value gold-color">+0 🪙</span>
+            <span id="reward-gold" class="reward-value gold-color">+0</span>
           </div>
           <div class="reward-row">
             <span class="reward-label">淘汰數</span>
@@ -314,7 +304,7 @@
       <div class="pause-content">
         <h2 class="pause-title">遊戲暫停</h2>
         <div class="pause-btn-group">
-          <div class="p-btn-wrapper" onclick="location.reload()">
+          <div class="p-btn-wrapper" onclick="window.returnToMenu()">
             <div class="p-circle-btn">
               <div class="icon-home"></div>
             </div>
@@ -356,7 +346,7 @@
         </div>
         <div class="reward-row">
           <span class="reward-label">金幣</span>
-          <span id="go-reward-gold" class="reward-value gold-color">+0 🪙</span>
+          <span id="go-reward-gold" class="reward-value gold-color">+0</span>
         </div>
         <div class="reward-row">
           <span class="reward-label">淘汰數</span>

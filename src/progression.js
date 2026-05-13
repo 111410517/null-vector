@@ -13,17 +13,13 @@ const STORAGE_KEY = 'null-vector-progress';
  */
 const LEVEL_XP_TABLE = [
   100,   // Lv.1 → Lv.2
-  300,   // Lv.2 → Lv.3
-  600,   // Lv.3 → Lv.4
-  1000,  // Lv.4 → Lv.5
-  1500,  // Lv.5 → Lv.6
-  2100,  // Lv.6 → Lv.7
-  2800,  // Lv.7 → Lv.8
-  3600,  // Lv.8 → Lv.9
-  4500,  // Lv.9 → Lv.10
+  250,   // Lv.2 → Lv.3
+  500,   // Lv.3 → Lv.4
+  850,   // Lv.4 → Lv.5
+  1300,  // Lv.5 → Lv.6
 ];
 
-const MAX_LEVEL = 10;
+const MAX_LEVEL = 6;
 
 /**
  * 建立預設進度資料結構
@@ -191,32 +187,45 @@ export function calculateGoldReward(isVictory, killCount) {
 }
 
 /**
- * 解鎖技能
+ * 解鎖技能 (新機制：不同技能點需求，衝刺等級 2 自動解鎖)
  * @param {object} progress - 進度物件
  * @param {string} skillId - 技能 ID
  * @returns {boolean} 是否成功解鎖
  */
 export function unlockSkill(progress, skillId) {
   const skill = progress.skills[skillId];
-  if (!skill || skill.unlocked || progress.skillPoints < 1) return false;
+  if (!skill || skill.unlocked) return false;
+
+  const costMap = {
+    sprint: 0,
+    tripleDash: 1,
+    overdrive: 2,
+    flashStep: 3
+  };
+
+  const levelReqMap = {
+    sprint: 2,
+    tripleDash: 1,
+    overdrive: 1,
+    flashStep: 1
+  };
+
+  const cost = costMap[skillId] || 0;
+  const levelReq = levelReqMap[skillId] || 1;
+
+  if (progress.level < levelReq || progress.skillPoints < cost) return false;
+
   skill.unlocked = true;
-  skill.level = 1;
-  progress.skillPoints--;
+  skill.level = 3; // 預設滿級 (因為取消強化系統)
+  progress.skillPoints -= cost;
   return true;
 }
 
 /**
- * 強化技能（已解鎖後，最多強化到 level 3）
- * @param {object} progress - 進度物件
- * @param {string} skillId - 技能 ID
- * @returns {boolean} 是否成功強化
+ * 強化技能 (已取消)
  */
 export function upgradeSkill(progress, skillId) {
-  const skill = progress.skills[skillId];
-  if (!skill || !skill.unlocked || skill.level >= 3 || progress.skillPoints < 1) return false;
-  skill.level++;
-  progress.skillPoints--;
-  return true;
+  return false; // 不再支援強化
 }
 
 /**
@@ -231,8 +240,11 @@ export function equipSkill(progress, skillId) {
     return true;
   }
   const skill = progress.skills[skillId];
-  if (!skill || !skill.unlocked) return false;
+  if (!skill) return false;
+
+  // [TEMP FOR TESTING] Bypassing unlocked check
   progress.equippedSkill = skillId;
+  if (skill.level === 0) skill.level = 3; // Use max level for testing
   return true;
 }
 

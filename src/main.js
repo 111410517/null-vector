@@ -16,7 +16,7 @@ import {
 
 // --- Game State ---
 let app, engine, world;
-let nodeLayer, entityLayer, virusLayer, powerupLayer;
+let nodeLayer, entityLayer, virusLayer, powerupLayer, vfxLayer, gameContainer;
 let player, entities = [], nodes = [], powerups = [];
 let mousePos = { x: 0, y: 0 };
 let joystick = { active: false, vector: { x: 0, y: 0 } };
@@ -62,11 +62,23 @@ async function init() {
   initProgressionUI();
 
   // Create Layers
+  gameContainer = new PIXI.Container();
   nodeLayer = new PIXI.Container();
   entityLayer = new PIXI.Container();
   virusLayer = new PIXI.Container();
   powerupLayer = new PIXI.Container();
-  app.stage.addChild(nodeLayer, powerupLayer, entityLayer, virusLayer);
+  vfxLayer = new PIXI.Container();
+  
+  // Z-Order: Nodes -> Powerups -> Entities -> Viruses -> VFX
+  gameContainer.addChild(nodeLayer, powerupLayer, entityLayer, virusLayer, vfxLayer);
+  app.stage.addChild(gameContainer);
+
+  // Create World Mask to clip everything outside boundaries
+  const mask = new PIXI.Graphics();
+  mask.rect(0, 0, CONFIG.worldSize, CONFIG.worldSize);
+  mask.fill(0xffffff);
+  gameContainer.mask = mask;
+  app.stage.addChild(mask); // Mask needs to be on stage to work correctly in some PIXI versions
 
   // Initial NPCs
   for (let i = 0; i < 4; i++) {
@@ -197,6 +209,8 @@ function createEntity(x, y, mass, name, isPlayer) {
     }
   });
   nameLabel.anchor.set(0.5, 1.2);
+  // Do NOT add to container, add to entityLayer directly to handle Z-order if needed,
+  // but for now, we'll keep it in container but ensure wallLayer is higher.
   container.addChild(nameLabel);
 
   // Mass Label (Inside Center)
@@ -212,6 +226,9 @@ function createEntity(x, y, mass, name, isPlayer) {
   });
   massLabel.anchor.set(0.5, 0.5);
   container.addChild(massLabel);
+  
+  // Ensure vfxLayer is always on top within gameContainer
+  if (vfxLayer) gameContainer.setChildIndex(vfxLayer, gameContainer.children.length - 1);
 
   // Indicator Line
   const indicator = new PIXI.Graphics();
@@ -488,6 +505,9 @@ function spawnNode() {
 }
 
 function showFloatingText(x, y, text, color = 0x00FF88) {
+  // Fix: Don't show if text is 0 or -0
+  if (text === 0 || text === "0" || text === "-0") return;
+  
   const t = new PIXI.Text({
     text: text,
     style: {
@@ -505,7 +525,7 @@ function showFloatingText(x, y, text, color = 0x00FF88) {
   const inverseZoom = 1 / app.stage.scale.x;
   t.scale.set(inverseZoom);
   
-  app.stage.addChild(t);
+  gameContainer.addChild(t);
   
   let life = 1.0;
   const fUpdate = (d) => {
@@ -513,7 +533,7 @@ function showFloatingText(x, y, text, color = 0x00FF88) {
     life -= 0.02 * d.deltaTime;
     t.alpha = life;
     if (life <= 0) {
-      app.stage.removeChild(t);
+      gameContainer.removeChild(t);
       app.ticker.remove(fUpdate);
     }
   };
@@ -591,10 +611,22 @@ function update(delta) {
     updateLifeRings(ent);
 
     // DYNAMIC BOOST CONSUMPTION & DEFORMATION LERP
+    // Safety check for player boost state to prevent stuck "Overdrive" effect
+    if (ent.isPlayer && skillState) {
+      const isDefaultBoost = skillState.isDefaultBoost && ent.isBoosting;
+      const isOverdrive = skillState.skillId === 'overdrive' && skillState.isActive;
+      const isTripleDash = skillState.skillId === 'tripleDash' && skillState.isActive;
+      if (!isDefaultBoost && !isOverdrive && !isTripleDash) {
+        ent.isBoosting = false;
+      }
+    }
+
     const targetBoost = ent.isBoosting ? 1.0 : 0.0;
     ent.boostFactor += (targetBoost - ent.boostFactor) * 0.08;
     
-    if (ent.isBoosting && ent.mass > 20) {
+    // Only consume mass if it's NOT a skill boost (Overdrive doesn't cost mass)
+    const isSkillBoost = ent.isPlayer && skillState && !skillState.isDefaultBoost && skillState.isActive;
+    if (ent.isBoosting && ent.mass > 20 && !isSkillBoost) {
       ent.mass -= 0.01 * delta.deltaTime;
     }
 
@@ -607,7 +639,7 @@ function update(delta) {
     while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
     ent.tailAngle += angleDiff * 0.12; // Adjust for sway speed
 
-    if (ent.isBoosting && ent.mass > CONFIG.initialMass * 0.8) {
+    if (ent.isBoosting && ent.mass > CONFIG.initialMass * 0.8 && !isSkillBoost) {
       // Slither.io style: Subtle mass loss (approx 10-15 mass per second for a 1000 mass entity)
       const consumption = (0.01 + ent.mass * 0.00015) * delta.deltaTime;
       ent.mass -= consumption;
@@ -665,11 +697,16 @@ function update(delta) {
 
         // 2. Eating Logic
         if (ent.protectionTime <= 0 && other.protectionTime <= 0) {
+          // SPECIAL: Disable normal eating for player during Flash Step to prevent logic conflict
+          if (ent.isPlayer && skillState && skillState.skillId === 'flashStep' && (skillState.isChanneling || skillState.isActive)) {
+            return;
+          }
+
           // Condition: Mass ratio >= 1.25 and small ball center is well within large ball
           // More forgiving threshold: dist < radius * 0.9
           if (ent.mass > other.mass * 1.25 && dist < radius * 0.9) {
             ent.mass += other.mass * 0.5;
-            if (ent.isPlayer || other.isPlayer) screenShake = 20;
+            if (ent.isPlayer || other.isPlayer) screenShake = Math.max(screenShake, 40); // Increased to 40
             if (ent.isPlayer && !other.isPlayer) killCount++;
             shatterEntity(other);
           }
@@ -1015,7 +1052,7 @@ function checkCollisions(ent) {
         ent.mass += CONFIG.rareItemMass;
         ent.speedMult += 0.2; // Add 20% speed
         showFloatingText(p.body.position.x, p.body.position.y, "GODSPEED +20% | MASS +500", 0xFFFFFF);
-        screenShake = 50;
+        screenShake = Math.max(screenShake, 60); // Increased and used Math.max
         triggerRarePickupVFX(p.body.position.x, p.body.position.y);
         
         p.body.isDestroyed = true;
@@ -1071,6 +1108,10 @@ function checkCollisions(ent) {
 
 function shatterEntity(ent) {
   if (ent.isDestroyed || ent.protectionTime > 0) return;
+  
+  // Basic shake for any death
+  screenShake = Math.max(screenShake, 30);
+  
   ent.protectionTime = 180; // Lock immediately to prevent multi-death
 
   if (ent.lives > 1) {
@@ -1460,7 +1501,7 @@ function updateLeaderboard() {
   if (!list) return;
 
   let html = top5.map((ent, i) => `
-    <div class="leaderboard-item ${ent.isPlayer ? 'me' : ''}">
+    <div class="leaderboard-item ${ent.isPlayer ? 'me' : ''} ${i === 0 ? 'is-leader' : ''}">
       <span class="rank">#${i + 1}</span>
       <span class="name">${ent.name}</span>
       <span class="score">${Math.floor(ent.mass)}</span>
@@ -1497,11 +1538,15 @@ function renderMinimap() {
   miniCtx.fillRect(0, 0, 150, 150);
 
   const scale = 150 / CONFIG.worldSize;
+
   entities.forEach(ent => {
     const r = calculateRadius(ent.mass) * scale * 2;
+    const x = ent.body.position.x * scale;
+    const y = ent.body.position.y * scale;
+
     miniCtx.fillStyle = ent.isPlayer ? '#FFFFFF' : 'rgba(255, 255, 255, 0.4)';
     miniCtx.beginPath();
-    miniCtx.arc(ent.body.position.x * scale, ent.body.position.y * scale, Math.max(2, r), 0, Math.PI * 2);
+    miniCtx.arc(x, y, Math.max(2, r), 0, Math.PI * 2);
     miniCtx.fill();
   });
 }
@@ -1527,15 +1572,64 @@ function saveHistory(time) {
 function loadHistory() {
   const history = JSON.parse(localStorage.getItem('null-vector-history') || '[]');
   const list = document.getElementById('history-list');
-  list.innerHTML = history.map(h => `
-    <div class="history-item">
-      <span>${h.date}</span>
-      <span class="time">${h.time}</span>
+  
+  if (history.length === 0) {
+    list.innerHTML = '<div class="history-empty">尚無獲勝紀錄</div>';
+    return;
+  }
+
+  const best = history[0]; // Sorted by time
+  const totalWins = history.length;
+
+  let html = `
+    <div class="history-summary">
+      <div class="summary-item">
+        <span class="summary-label">最佳成績</span>
+        <span class="summary-value">${best.time}</span>
+      </div>
+      <div class="summary-item">
+        <span class="summary-label">總獲勝數</span>
+        <span class="summary-value">${totalWins}</span>
+      </div>
+    </div>
+    <div class="history-list-header">近期戰績</div>
+  `;
+
+  html += history.map((h, i) => `
+    <div class="history-item ${i === 0 ? 'is-best' : ''}">
+      <div class="history-item-left">
+        <span class="history-icon">${i === 0 ? 'BEST' : 'WIN'}</span>
+        <span class="history-date">${h.date}</span>
+      </div>
+      <span class="history-time">${h.time}</span>
     </div>
   `).join('');
+  
+  list.innerHTML = html;
 }
 
-window.restartGame = () => location.reload();
+window.restartGame = () => {
+  document.getElementById('victory-screen').style.display = 'none';
+  document.getElementById('game-over').style.display = 'none';
+  document.getElementById('pause-menu').style.display = 'none';
+  isPaused = false;
+  startGame();
+};
+
+window.returnToMenu = () => {
+  isGameRunning = false;
+  isGameOver = false;
+  isPaused = false;
+  document.getElementById('pause-menu').style.display = 'none';
+  document.getElementById('victory-screen').style.display = 'none';
+  document.getElementById('game-over').style.display = 'none';
+  document.getElementById('start-menu').style.display = 'flex';
+  document.querySelector('.ui-overlay').style.display = 'none';
+  
+  // Refresh main screen info
+  refreshProgressDisplay();
+  loadHistory();
+};
 
 // PAUSE SYSTEM
 function togglePause() {
@@ -1638,9 +1732,20 @@ function initProgressionUI() {
  */
 function refreshProgressDisplay() {
   const pct = getLevelProgress(progress);
-  document.getElementById('level-label').textContent = `Lv.${progress.level}`;
-  document.getElementById('xp-bar-fill').style.width = `${Math.round(pct * 100)}%`;
-  document.getElementById('xp-percent').textContent = `${Math.round(pct * 100)}%`;
+  const levelLabel = document.getElementById('level-label');
+  
+  if (progress.level >= MAX_LEVEL) {
+    levelLabel.textContent = 'MAX';
+    levelLabel.classList.add('is-max');
+    document.getElementById('xp-bar-fill').style.width = '100%';
+    document.getElementById('xp-percent').textContent = '100%';
+  } else {
+    levelLabel.textContent = `Lv.${progress.level}`;
+    levelLabel.classList.remove('is-max');
+    document.getElementById('xp-bar-fill').style.width = `${Math.round(pct * 100)}%`;
+    document.getElementById('xp-percent').textContent = `${Math.round(pct * 100)}%`;
+  }
+  
   document.getElementById('gold-amount').textContent = progress.gold;
   // Sync skin page gold
   const skinGold = document.getElementById('skin-gold-amount');
@@ -1671,33 +1776,46 @@ function renderSkillsPage() {
   }
 
   // Render each skill card
+  const unlockCosts = { sprint: 0, tripleDash: 1, overdrive: 2, flashStep: 3 };
+  const levelReqs = { sprint: 2, tripleDash: 1, overdrive: 1, flashStep: 1 };
+
   ['sprint', 'overdrive', 'tripleDash', 'flashStep'].forEach(id => {
     const skill = progress.skills[id];
     const card = document.querySelector(`.skill-card[data-skill="${id}"]`);
-    const starsEl = document.getElementById(`stars-${id}`);
     const actionsEl = document.getElementById(`actions-${id}`);
 
-    // Reset classes
     card.classList.remove('locked', 'equipped');
 
-    if (!skill.unlocked) {
-      card.classList.add('locked');
-      starsEl.textContent = '';
-      actionsEl.innerHTML = `<button class="btn-unlock" ${progress.skillPoints < 1 ? 'disabled' : ''} data-action="unlock" data-skill="${id}">解鎖 1🔑</button>`;
-    } else {
-      // Stars
-      const stars = '★'.repeat(skill.level) + '☆'.repeat(3 - skill.level);
-      starsEl.textContent = stars;
+    // Auto-unlock Sprint at Level 2
+    if (id === 'sprint' && progress.level >= 2 && !skill.unlocked) {
+      skill.unlocked = true;
+      skill.level = 3;
+      saveProgress(progress);
+    }
 
+    // [TEMP FOR TESTING] Bypass unlocked visual check
+    const isActuallyUnlocked = skill.unlocked;
+    const forceEquippable = true; // Set to true for manual testing
+
+    if (!isActuallyUnlocked && !forceEquippable) {
+      card.classList.add('locked');
+      const cost = unlockCosts[id];
+      const lvlReq = levelReqs[id];
+      
+      let btnLabel = `解鎖 ${cost}`;
+      if (id === 'sprint' && progress.level < 2) {
+        btnLabel = 'Lv.2 解鎖';
+      }
+      
+      const canUnlock = progress.level >= lvlReq && progress.skillPoints >= cost;
+      actionsEl.innerHTML = `<button class="btn-unlock" ${!canUnlock ? 'disabled' : ''} data-action="unlock" data-skill="${id}">${btnLabel}</button>`;
+    } else {
       let html = '';
       if (equipped === id) {
         card.classList.add('equipped');
         html += `<button class="btn-equipped-label" disabled>裝備中</button>`;
       } else {
         html += `<button class="btn-equip" data-action="equip" data-skill="${id}">裝備</button>`;
-      }
-      if (skill.level < 3) {
-        html += `<button class="btn-upgrade" ${progress.skillPoints < 1 ? 'disabled' : ''} data-action="upgrade" data-skill="${id}">強化 1🔑</button>`;
       }
       actionsEl.innerHTML = html;
     }
@@ -1803,7 +1921,7 @@ function executeSprint() {
     x: Math.cos(angle) * force,
     y: Math.sin(angle) * force
   });
-  screenShake = 8;
+  screenShake = Math.max(screenShake, 8);
   startCooldown(skillState);
 }
 
@@ -1838,8 +1956,11 @@ function executeTripleDash() {
 
 function performSingleDash(cost) {
   if (!player || player.isDestroyed) return;
-  player.mass -= cost;
-  showFloatingText(player.body.position.x, player.body.position.y, `-${cost}`, 0xFF4444);
+  
+  // Use percentage-based mass cost for Triple Dash
+  const actualCost = Math.floor(player.mass * 0.015); // 1.5% mass
+  player.mass -= actualCost;
+  showFloatingText(player.body.position.x, player.body.position.y, `-${actualCost}`, 0xFF4444);
 
   // Dash toward current mouse/joystick direction
   const screenPos = new PIXI.Point(mousePos.x, mousePos.y);
@@ -1852,7 +1973,7 @@ function performSingleDash(cost) {
     x: Math.cos(angle) * force,
     y: Math.sin(angle) * force
   });
-  screenShake = 6;
+  screenShake = Math.max(screenShake, 12); // Increased from 6 for better feel
   skillState.tripleDashRemaining--;
 }
 
@@ -1864,18 +1985,22 @@ function startFlashStepChannel() {
   skillState.isChanneling = true;
   skillState.isActive = true;
   timeScale = SKILL_DEFS.flashStep.slowMotionScale;
+  
+  // Add visual effect class
+  document.body.classList.add('skill-channeling');
 
   // Create indicator circle and line
   flashStepIndicator = new PIXI.Graphics();
   flashStepLine = new PIXI.Graphics();
-  app.stage.addChild(flashStepLine);
-  app.stage.addChild(flashStepIndicator);
+  gameContainer.addChild(flashStepLine);
+  gameContainer.addChild(flashStepIndicator);
 }
 
-function executeFlashStep() {
+async function executeFlashStep() {
   if (!skillState.isChanneling) return;
   skillState.isChanneling = false;
   timeScale = 1.0;
+  document.body.classList.remove('skill-channeling');
 
   const def = SKILL_DEFS.flashStep;
   const cost = getSkillParam(def, 'massCost', skillState.level);
@@ -1885,8 +2010,10 @@ function executeFlashStep() {
     return;
   }
 
-  player.mass -= cost;
-  showFloatingText(player.body.position.x, player.body.position.y, `-${cost}`, 0xFF4444);
+  if (cost > 0) {
+    player.mass -= cost;
+    showFloatingText(player.body.position.x, player.body.position.y, `-${cost}`, 0xFF4444);
+  }
 
   // Calculate target position
   const screenPos = new PIXI.Point(mousePos.x, mousePos.y);
@@ -1898,42 +2025,91 @@ function executeFlashStep() {
   const dist = Matter.Vector.magnitude(diff);
   const clampedDist = Math.min(dist, maxDist);
   const norm = Matter.Vector.normalise(diff);
-  const targetX = player.body.position.x + norm.x * clampedDist;
-  const targetY = player.body.position.y + norm.y * clampedDist;
+  const startX = player.body.position.x;
+  const startY = player.body.position.y;
+  const targetX = Math.max(100, Math.min(CONFIG.worldSize - 100, startX + norm.x * clampedDist));
+  const targetY = Math.max(100, Math.min(CONFIG.worldSize - 100, startY + norm.y * clampedDist));
 
-  // Kill entities along the path
-  const startPos = { x: player.body.position.x, y: player.body.position.y };
+  // NEW: Fast Dash instead of teleport
+  const dashSteps = 2; // Reduced for faster movement
+  const startPos = { x: startX, y: startY };
+  
+  let killedSomething = false;
+  
+  // Animation for fast movement
+  for (let i = 1; i <= dashSteps; i++) {
+    const t = i / dashSteps;
+    const curX = startX + (targetX - startX) * t;
+    const curY = startY + (targetY - startY) * t;
+    Matter.Body.setPosition(player.body, { x: curX, y: curY });
+    Matter.Body.setVelocity(player.body, { x: 0, y: 0 });
+
+    // Tiny delay for visual speed
+    await new Promise(r => setTimeout(r, 8)); // Faster delay
+  }
+
+  // Final position
+  Matter.Body.setPosition(player.body, { x: targetX, y: targetY });
+
+  // KILL CHECK: Only at target position
   entities.forEach(ent => {
     if (ent === player || ent.isDestroyed || ent.isPlayer) return;
-    if (ent.mass >= player.mass) return; // Can only kill smaller
-    const entPos = ent.body.position;
-    // Point-to-segment distance
-    const d = pointToSegmentDist(entPos, startPos, { x: targetX, y: targetY });
+    if (ent.mass >= player.mass) return;
+    
+    const diff = Matter.Vector.sub(ent.body.position, { x: targetX, y: targetY });
+    const dist = Matter.Vector.magnitude(diff);
     const entRadius = calculateRadius(ent.mass);
-    if (d < radius + entRadius) {
+    
+    if (dist < radius + entRadius) {
       player.mass += ent.mass * 0.5;
       killCount++;
-      screenShake = 15;
+      killedSomething = true;
+      
+      // TRIGGER SHAKE IMMEDIATELY
+      screenShake = Math.max(screenShake, 60); 
+      
       shatterEntity(ent);
+      
+      // Blade slash effect (Now just at hit point)
+      drawBladeSlash(startPos, { x: targetX, y: targetY });
+      
+      // Brief Time Freeze on kill
+      timeScale = 0;
+      setTimeout(() => { if (!skillState.isChanneling) timeScale = 1.0; }, 150);
     }
   });
 
-  // Teleport
-  Matter.Body.setPosition(player.body, { x: targetX, y: targetY });
-  Matter.Body.setVelocity(player.body, { x: 0, y: 0 });
-  player.protectionTime = Math.max(player.protectionTime, 30); // Brief invincibility
-
   // VFX
-  triggerRespawnVFX(targetX, targetY);
-  screenShake = 20;
+  // Basic dash shake if nothing killed
+  if (!killedSomething) screenShake = Math.max(screenShake, 20); 
+  
   cleanupFlashStepVisuals();
   startCooldown(skillState);
   skillState.isActive = false;
 }
 
+function drawBladeSlash(start, end) {
+  const slash = new PIXI.Graphics();
+  slash.moveTo(start.x, start.y);
+  slash.lineTo(end.x, end.y);
+  slash.stroke({ width: 2, color: 0xFFFFFF, alpha: 0.8, cap: 'round' }); // Thin white line
+  gameContainer.addChild(slash);
+  
+  let alpha = 0.8;
+  const anim = (d) => {
+    alpha -= 0.05 * d.deltaTime;
+    slash.alpha = alpha;
+    if (alpha <= 0) {
+      gameContainer.removeChild(slash);
+      app.ticker.remove(anim);
+    }
+  };
+  app.ticker.add(anim);
+}
+
 function cleanupFlashStepVisuals() {
-  if (flashStepIndicator) { app.stage.removeChild(flashStepIndicator); flashStepIndicator = null; }
-  if (flashStepLine) { app.stage.removeChild(flashStepLine); flashStepLine = null; }
+  if (flashStepIndicator) { gameContainer.removeChild(flashStepIndicator); flashStepIndicator = null; }
+  if (flashStepLine) { gameContainer.removeChild(flashStepLine); flashStepLine = null; }
 }
 
 /** Point-to-segment distance helper */
@@ -2002,8 +2178,8 @@ function updateSkillEffects(delta) {
     const dist = Matter.Vector.magnitude(diff);
     const clampedDist = Math.min(dist, maxDist);
     const norm = Matter.Vector.normalise(diff);
-    const tx = player.body.position.x + norm.x * clampedDist;
-    const ty = player.body.position.y + norm.y * clampedDist;
+    const tx = Math.max(100, Math.min(CONFIG.worldSize - 100, player.body.position.x + norm.x * clampedDist));
+    const ty = Math.max(100, Math.min(CONFIG.worldSize - 100, player.body.position.y + norm.y * clampedDist));
 
     // Draw target circle
     flashStepIndicator.clear();
@@ -2013,14 +2189,16 @@ function updateSkillEffects(delta) {
     // Draw dashed line
     flashStepLine.clear();
     const segments = 12;
+    const finalDiff = { x: tx - player.body.position.x, y: ty - player.body.position.y };
+
     for (let i = 0; i < segments; i++) {
       if (i % 2 === 0) {
         const s = i / segments;
         const e = (i + 1) / segments;
-        const sx = player.body.position.x + norm.x * clampedDist * s;
-        const sy = player.body.position.y + norm.y * clampedDist * s;
-        const ex = player.body.position.x + norm.x * clampedDist * e;
-        const ey = player.body.position.y + norm.y * clampedDist * e;
+        const sx = player.body.position.x + finalDiff.x * s;
+        const sy = player.body.position.y + finalDiff.y * s;
+        const ex = player.body.position.x + finalDiff.x * e;
+        const ey = player.body.position.y + finalDiff.y * e;
         flashStepLine.moveTo(sx, sy);
         flashStepLine.lineTo(ex, ey);
       }
@@ -2036,7 +2214,20 @@ function updateCooldownUI() {
   if (!skillState || skillState.isDefaultBoost) return;
   const skillBtn = document.getElementById('skill-btn');
   let overlay = skillBtn.querySelector('.cooldown-overlay');
+  let chargeBadge = skillBtn.querySelector('.charge-badge');
   const cdProgress = getCooldownProgress(skillState);
+
+  // Show charges if applicable
+  if (skillState.maxCharges > 1) {
+    if (!chargeBadge) {
+      chargeBadge = document.createElement('div');
+      chargeBadge.className = 'charge-badge';
+      skillBtn.appendChild(chargeBadge);
+    }
+    chargeBadge.textContent = skillState.charges;
+  } else if (chargeBadge) {
+    chargeBadge.remove();
+  }
 
   if (cdProgress > 0) {
     if (!overlay) {
@@ -2046,11 +2237,17 @@ function updateCooldownUI() {
       skillBtn.appendChild(overlay);
     }
     const secs = Math.ceil(skillState.cooldownRemaining / 1000);
-    overlay.querySelector('.cooldown-text').textContent = `${secs}s`;
+    overlay.querySelector('.cooldown-text').textContent = skillState.charges > 0 ? '' : `${secs}s`;
+    
     // Clip from bottom upwards
     const pct = cdProgress * 100;
     overlay.style.clipPath = `inset(${100 - pct}% 0 0 0)`;
-    skillBtn.classList.add('disabled');
+    
+    if (skillState.charges <= 0) {
+      skillBtn.classList.add('disabled');
+    } else {
+      skillBtn.classList.remove('disabled');
+    }
   } else {
     if (overlay) { overlay.remove(); }
     // Also check if mass is insufficient
@@ -2077,7 +2274,7 @@ function showRewardScreen(isVictory) {
   // Use correct element IDs based on screen
   const prefix = isVictory ? '' : 'go-';
   document.getElementById(`${prefix}reward-xp`).textContent = `+${xpReward} XP`;
-  document.getElementById(`${prefix}reward-gold`).textContent = `+${goldReward} 🪙`;
+  document.getElementById(`${prefix}reward-gold`).textContent = `+${goldReward}`;
   document.getElementById(`${prefix}reward-kills`).textContent = `×${killCount}`;
   document.getElementById(`${prefix}reward-level-label`).textContent = `Lv.${progress.level}`;
 
