@@ -673,7 +673,7 @@ function update(delta) {
     }
     // --------------------------------------------
 
-    if (isUpdatingPhysics) {
+    if (shouldUpdatePhysics) {
       // RESTORE NPC AI with spawnDelay
       if (!ent.isPlayer) {
         if (ent.spawnDelay > 0) {
@@ -696,7 +696,7 @@ function update(delta) {
     const pos = ent.body.position;
     const radius = calculateRadius(ent.mass);
     
-    if (isUpdatingPhysics) {
+    if (shouldUpdatePhysics) {
       ent.body.circleRadius = radius;
       Matter.Body.setMass(ent.body, ent.mass);
       updateLifeRings(ent);
