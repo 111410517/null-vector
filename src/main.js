@@ -132,9 +132,11 @@ async function init() {
   gameContainer.mask = mask;
   app.stage.addChild(mask); // Mask needs to be on stage to work correctly in some PIXI versions
 
-  // Initial NPCs
-  for (let i = 0; i < 4; i++) {
-    spawnNPC(i);
+  // Initial NPCs (Demo background: spawn near center)
+  for (let i = 0; i < 6; i++) {
+    const rx = CONFIG.worldSize / 2 + (Math.random() - 0.5) * 2000;
+    const ry = CONFIG.worldSize / 2 + (Math.random() - 0.5) * 2000;
+    spawnNPC(i, rx, ry);
   }
 
   // Create Nodes
@@ -193,7 +195,7 @@ function clearWorld() {
   player = null;
 }
 
-function spawnNPC(index) {
+function spawnNPC(index, customX, customY) {
   const isSmart = index < (CONFIG.npcCount * 0.5); // 50% Smart AI
   let name;
   if (isSmart) {
@@ -202,7 +204,11 @@ function spawnNPC(index) {
   } else {
     name = NPC_NAMES[index % (NPC_NAMES.length - 1)];
   }
-  const ent = createEntity(Math.random() * CONFIG.worldSize, Math.random() * CONFIG.worldSize, CONFIG.initialMass, name, false);
+  
+  const x = customX !== undefined ? customX : Math.random() * CONFIG.worldSize;
+  const y = customY !== undefined ? customY : Math.random() * CONFIG.worldSize;
+  
+  const ent = createEntity(x, y, CONFIG.initialMass, name, false);
   ent.isSmart = isSmart;
   ent.protectionTime = 180;
   ent.spawnDelay = 1000;
@@ -1857,9 +1863,13 @@ window.returnToMenu = () => {
   isGameOver = false;
   isPaused = false;
   
-  // 清理世界並重新生成原有的演示背景物件
+  // 清理世界並重新生成原有的演示背景物件 (集中在中心區域)
   clearWorld();
-  for (let i = 0; i < 4; i++) spawnNPC(i);
+  for (let i = 0; i < 6; i++) {
+    const rx = CONFIG.worldSize / 2 + (Math.random() - 0.5) * 2000;
+    const ry = CONFIG.worldSize / 2 + (Math.random() - 0.5) * 2000;
+    spawnNPC(i, rx, ry);
+  }
   for (let i = 0; i < CONFIG.nodeCount; i++) spawnNode();
   for (let i = 0; i < CONFIG.virusCount; i++) spawnVirus();
 
