@@ -2,33 +2,18 @@ import './style.css';
 import './pwa.js';
 import * as Matter from 'matter-js';
 import * as PIXI from 'pixi.js';
-
-// --- Constants & Config ---
-const CONFIG = {
-  playerColor: 0xFFFFFF,
-  npcColor: 0x444444,
-  nodeColor: 0xFFFFFF,
-  bgColor: 0x121212,
-  initialMass: 30,
-  nodeMass: 1.5,
-  worldSize: 5000, 
-  npcCount: 10,
-  nodeCount: 300,
-  friction: 0.05, 
-  zoomFactor: 0.0015,
-  specialNodeMass: 8.0,
-  virusCount: 4,
-  virusMinMass: 500, // Entities below this die
-  virusMassLoss: 80, // High-mass entities lose this much
-};
+import { CONFIG, calculateRadius } from './constants.js';
+import { updateAI } from './ai.js';
 
 // --- Game State ---
 let app, engine, world;
-let player, entities = [], nodes = [];
-let keys = {};
+let nodeLayer, entityLayer, virusLayer, powerupLayer;
+let player, entities = [], nodes = [], powerups = [];
+let mousePos = { x: 0, y: 0 };
 let joystick = { active: false, vector: { x: 0, y: 0 } };
 let isGameOver = false;
 let isGameRunning = false;
+let isPaused = false;
 let screenShake = 0;
 let joyZone, joyThumb;
 let startTime = 0;
@@ -59,6 +44,13 @@ async function init() {
   initMinimap();
   loadHistory();
 
+  // Create Layers
+  nodeLayer = new PIXI.Container();
+  entityLayer = new PIXI.Container();
+  virusLayer = new PIXI.Container();
+  powerupLayer = new PIXI.Container();
+  app.stage.addChild(nodeLayer, powerupLayer, entityLayer, virusLayer);
+
   // Initial NPCs
   for (let i = 0; i < 4; i++) {
     spawnNPC(i);
@@ -81,12 +73,11 @@ async function init() {
 }
 
 function spawnNPC(index) {
-  const isSmart = index === (CONFIG.npcCount - 1);
+  const isSmart = index < (CONFIG.npcCount * 0.5); // 50% Smart AI
   let name;
   if (isSmart) {
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()";
     name = Array.from({length: 8}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
-    // Special marker for us to verify it's the smart one (invisible to player but color change works)
   } else {
     name = NPC_NAMES[index % (NPC_NAMES.length - 1)];
   }
@@ -99,16 +90,16 @@ function startGame() {
   // --- RESET WORLD FOR FRESH START ---
   // 1. Remove all entities, nodes, and viruses from stage and world
   entities.forEach(ent => {
-    app.stage.removeChild(ent.container);
+    entityLayer.removeChild(ent.container);
     if (ent.indicator) app.stage.removeChild(ent.indicator);
     Matter.World.remove(world, ent.body);
   });
   nodes.forEach(node => {
-    app.stage.removeChild(node.graphics);
+    nodeLayer.removeChild(node.graphics);
     Matter.World.remove(world, node.body);
   });
   viruses.forEach(v => {
-    app.stage.removeChild(v.graphics);
+    virusLayer.removeChild(v.graphics);
     Matter.World.remove(world, v.body);
   });
 
@@ -116,6 +107,7 @@ function startGame() {
   entities = [];
   nodes = [];
   viruses = [];
+  powerups = [];
 
   // 3. Re-spawn initial game objects
   for (let i = 0; i < CONFIG.nodeCount; i++) spawnNode();
@@ -129,6 +121,10 @@ function startGame() {
   isGameRunning = true;
   startTime = Date.now();
   document.getElementById('start-menu').style.display = 'none';
+  document.querySelector('.ui-overlay').style.display = 'block';
+
+  // START RARE ITEM (Delayed by 30s)
+  setTimeout(spawnRareItem, 30000); 
 
   // 5. Start Spawning NPCs over time (Restoring your original design)
   let spawned = 0;
@@ -201,7 +197,7 @@ function createEntity(x, y, mass, name, isPlayer) {
   const entity = { 
     body, container, graphics, nameLabel, massLabel, indicator, 
     mass, name, isPlayer, 
-    lives: 3,
+    lives: 2,
     protectionTime: 180,
     isBoosting: false,
     isDestroyed: false,
@@ -214,7 +210,8 @@ function createEntity(x, y, mass, name, isPlayer) {
     tailAngle: 0,
     isSmart: false,
     boostBudget: 0,
-    isRespawning: false
+    isRespawning: false,
+    speedMult: 1.0 // Base speed multiplier
   };
 
   entity.body.collisionFilter = {
@@ -232,15 +229,15 @@ function createEntity(x, y, mass, name, isPlayer) {
     entity.dirIndicator = dirIndicator;
   }
 
-  // Draw initial life rings
-  for (let i = 0; i < 2; i++) {
+  // Draw initial life rings (1 ring for 2 lives)
+  for (let i = 0; i < 1; i++) {
     const ring = new PIXI.Graphics();
     entity.lifeRings.push(ring);
     container.addChild(ring);
   }
   updateLifeRings(entity);
   entities.push(entity);
-  app.stage.addChild(container);
+  entityLayer.addChild(container);
   Matter.World.add(world, body);
   return entity;
 }
@@ -436,7 +433,7 @@ function spawnNode() {
       inner.rotation -= 0.06 * d.deltaTime;
       container.alpha = 0.8 + Math.sin(t) * 0.2;
       if (body.isDestroyed) {
-        app.stage.removeChild(container);
+        nodeLayer.removeChild(container);
         app.ticker.remove(gUpdate);
       }
     };
@@ -454,14 +451,14 @@ function spawnNode() {
       graphics.rotation += 0.02 * d.deltaTime;
       container.scale.set(0.95 + Math.sin(t) * 0.05);
       if (body.isDestroyed) {
-        app.stage.removeChild(container);
+        nodeLayer.removeChild(container);
         app.ticker.remove(gUpdate);
       }
     };
     app.ticker.add(gUpdate);
   }
   
-  app.stage.addChildAt(container, 1); // Below entities
+  nodeLayer.addChild(container); 
   nodes.push({ body, graphics: container, isSpecial });
   Matter.World.add(world, body);
 }
@@ -499,10 +496,7 @@ function showFloatingText(x, y, text, color = 0x00FF88) {
   app.ticker.add(fUpdate);
 }
 
-function calculateRadius(mass) {
-  const m = Number.isFinite(mass) ? Math.max(1, mass) : CONFIG.initialMass;
-  return Math.pow(m, 0.45) * 12;
-}
+// calculateRadius moved to constants.js
 
 function createGrid() {
   const grid = new PIXI.Graphics();
@@ -516,6 +510,7 @@ function createGrid() {
 
 // --- Logic ---
 function update(delta) {
+  if (!isGameRunning || isGameOver || isPaused) return;
   // Cap delta to prevent Matter.js warnings and physics jitter
   Matter.Engine.update(engine, Math.min(16.6, delta.elapsedMS));
 
@@ -540,7 +535,7 @@ function update(delta) {
     // --------------------------------------------
 
     // RESTORE NPC AI
-    if (!ent.isPlayer) updateAI(ent, delta);
+    if (!ent.isPlayer) updateAI(ent, delta, { entities, viruses, nodes, powerups, isGameOver });
 
     // Protection Effect
     if (ent.protectionTime > 0) {
@@ -554,11 +549,23 @@ function update(delta) {
     const radius = calculateRadius(ent.mass);
     ent.body.circleRadius = radius;
     
+    // CRITICAL FIX: Synchronize physical mass with logic mass
+    // Matter.js doesn't automatically update body.mass when we change logic variables.
+    // Without this, large entities keep the initial mass of 30 but get the force of 1000+, 
+    // causing them to move at supersonic speeds.
+    Matter.Body.setMass(ent.body, ent.mass);
+    
     updateLifeRings(ent);
 
     // DYNAMIC BOOST CONSUMPTION & DEFORMATION LERP
     const targetBoost = ent.isBoosting ? 1.0 : 0.0;
     ent.boostFactor += (targetBoost - ent.boostFactor) * 0.08;
+    
+    if (ent.isBoosting && ent.mass > 20) {
+      ent.mass -= 0.01 * delta.deltaTime;
+    }
+
+    const baseForce = CONFIG.baseForce * Math.pow(ent.mass / 30, 0.8);
 
     // TAIL ANGLE LERP (Inertia)
     const currentVelAngle = Math.atan2(ent.body.velocity.y, ent.body.velocity.x);
@@ -568,7 +575,8 @@ function update(delta) {
     ent.tailAngle += angleDiff * 0.12; // Adjust for sway speed
 
     if (ent.isBoosting && ent.mass > CONFIG.initialMass * 0.8) {
-      const consumption = (0.05 + ent.mass * 0.0008) * delta.deltaTime;
+      // Slither.io style: Subtle mass loss (approx 10-15 mass per second for a 1000 mass entity)
+      const consumption = (0.01 + ent.mass * 0.00015) * delta.deltaTime;
       ent.mass -= consumption;
       
       // NPC Budget Management
@@ -603,18 +611,35 @@ function update(delta) {
       if (ent.body.velocity.y > 0) Matter.Body.setVelocity(ent.body, { x: ent.body.velocity.x, y: ent.body.velocity.y * damping });
     }
 
-    // SOFT REPULSION BETWEEN ENTITIES
+    // SOFT CENTER REPULSION & EATING (Agar.io Style)
     entities.forEach(other => {
       if (ent === other || other.isDestroyed) return;
       const diff = Matter.Vector.sub(other.body.position, ent.body.position);
       const dist = Matter.Vector.magnitude(diff);
-      const minDist = radius + calculateRadius(other.mass);
-      if (dist < minDist) {
-        const overlap = minDist - dist;
-        const forceMag = overlap * 0.0004; // Very soft push
-        const force = Matter.Vector.mult(Matter.Vector.normalise(diff), forceMag);
-        Matter.Body.applyForce(other.body, other.body.position, force);
-        Matter.Body.applyForce(ent.body, ent.body.position, Matter.Vector.neg(force));
+      const otherRadius = calculateRadius(other.mass);
+      const combinedRadius = radius + otherRadius;
+
+      if (dist < combinedRadius) {
+        // 1. Soft Repulsion (Only when very close to center to avoid stacking)
+        const repulsionThreshold = combinedRadius * 0.5;
+        if (dist < repulsionThreshold) {
+          const overlap = repulsionThreshold - dist;
+          const repulsionK = 0.00005; // Much weaker than before (was 0.0002)
+          const force = Matter.Vector.mult(Matter.Vector.normalise(diff), overlap * repulsionK);
+          Matter.Body.applyForce(other.body, other.body.position, force);
+          Matter.Body.applyForce(ent.body, ent.body.position, Matter.Vector.neg(force));
+        }
+
+        // 2. Eating Logic
+        if (ent.protectionTime <= 0 && other.protectionTime <= 0) {
+          // Condition: Mass ratio >= 1.25 and small ball center is well within large ball
+          // More forgiving threshold: dist < radius * 0.9
+          if (ent.mass > other.mass * 1.25 && dist < radius * 0.9) {
+            ent.mass += other.mass * 0.5;
+            if (ent.isPlayer || other.isPlayer) screenShake = 20;
+            shatterEntity(other);
+          }
+        }
       }
     });
 
@@ -633,29 +658,8 @@ function update(delta) {
     ent.nameLabel.scale.set(inverseZoom);
     ent.massLabel.scale.set(inverseZoom);
 
-    // Global Velocity Clamp to prevent physics explosions
-    const vel = ent.body.velocity;
-    const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
-    const absoluteLimit = 80;
-    if (speed > absoluteLimit) {
-      const ratio = absoluteLimit / speed;
-      Matter.Body.setVelocity(ent.body, { x: vel.x * ratio, y: vel.y * ratio });
-    }
-
-    // Smooth Speed Limit (Dynamic based on Boost)
-    let maxVel = 3.5 + (15 / Math.pow(ent.mass, 0.3));
-    if (ent.isBoosting) maxVel *= 1.4; // Allow higher speed while boosting
-
-    const currentVel = ent.body.velocity;
-    const currentSpeed = Math.sqrt(currentVel.x * currentVel.x + currentVel.y * currentVel.y);
-    
-    if (currentSpeed > maxVel) {
-      const lerp = 0.08; // Smooth friction
-      Matter.Body.setVelocity(ent.body, { 
-        x: currentVel.x * (1 - lerp) + (currentVel.x / currentSpeed) * maxVel * lerp, 
-        y: currentVel.y * (1 - lerp) + (currentVel.y / currentSpeed) * maxVel * lerp 
-      });
-    }
+    // Velocity Clamping removed to allow pure physical formula balancing as suggested.
+    // Friction (0.12) and Force (mass^0.6) will naturally define terminal velocity.
 
     checkCollisions(ent);
 
@@ -700,7 +704,9 @@ function update(delta) {
   const followLerp = 0.1;
 
   if (player) {
-    const targetZoom = Math.max(minZoom, 0.85 / (1 + (player.mass - CONFIG.initialMass) * 0.0006));
+    let targetZoom = Math.max(minZoom, 0.85 / (1 + (player.mass - CONFIG.initialMass) * 0.0006));
+    // SLITHER.IO CAMERA: Zoom out slightly when boosting for better vision
+    if (player.isBoosting) targetZoom *= 0.85; 
     app.stage.scale.x += (targetZoom - app.stage.scale.x) * zoomLerp;
     app.stage.scale.y += (targetZoom - app.stage.scale.y) * zoomLerp;
 
@@ -741,7 +747,8 @@ function update(delta) {
     elapsedTime = Date.now() - startTime;
     const mins = Math.floor(elapsedTime / 60000).toString().padStart(2, '0');
     const secs = Math.floor((elapsedTime % 60000) / 1000).toString().padStart(2, '0');
-    document.getElementById('game-timer').innerText = `${mins}:${secs}`;
+    const timerEl = document.getElementById('timer-text');
+    if (timerEl) timerEl.innerText = `${mins}:${secs}`;
     
     // Accumulative Boost Text
     boostTextTimer += delta.deltaTime;
@@ -762,39 +769,38 @@ function update(delta) {
   renderMinimap();
 }
 
+
+
 function handleInputs() {
   if (!player || isGameOver || player.isRespawning) {
     if (player) player.isBoosting = false;
     joystick.vector = { x: 0, y: 0 };
     return;
   }
-  let moveX = 0, moveY = 0;
-  let isKbd = false;
-
-  if (keys['KeyW']) { moveY -= 1; isKbd = true; }
-  if (keys['KeyS']) { moveY += 1; isKbd = true; }
-  if (keys['KeyA']) { moveX -= 1; isKbd = true; }
-  if (keys['KeyD']) { moveX += 1; isKbd = true; }
-
-  if (isKbd) {
-    // Sync joystick UI when using WASD
-    const mag = Math.sqrt(moveX*moveX + moveY*moveY);
-    const normX = moveX / mag;
-    const normY = moveY / mag;
-    const dist = 50; 
-    // Use calc to maintain the centered origin from CSS while adding offset
-    joyThumb.style.transform = `translate(calc(-50% + ${normX * dist}px), calc(-50% + ${normY * dist}px))`;
-    joystick.vector = { x: normX, y: normY };
-  } else if (!joystick.active) {
-    joyThumb.style.transform = 'translate(-50%, -50%)';
-    joystick.vector = { x: 0, y: 0 };
+  // MOUSE CONTROL (PC Mode)
+  if (!joystick.active) {
+    const screenPos = new PIXI.Point(mousePos.x, mousePos.y);
+    const worldMouse = app.stage.toLocal(screenPos);
+    const diff = Matter.Vector.sub(worldMouse, player.body.position);
+    const dist = Matter.Vector.magnitude(diff);
+    const radius = calculateRadius(player.mass);
+    
+    if (dist < 1) {
+      joystick.vector = { x: 0, y: 0 };
+    } else {
+      const norm = Matter.Vector.normalise(diff);
+      // Speed control: Full speed outside radius, linear scaling inside
+      const multiplier = dist > radius ? 1.0 : (dist / radius);
+      joystick.vector = Matter.Vector.mult(norm, multiplier);
+    }
   }
 
   // Apply Player Force (Keyboard/Joystick)
   if (Number.isFinite(joystick.vector.x) && (joystick.vector.x !== 0 || joystick.vector.y !== 0)) {
-    const boostMult = player.isBoosting ? 1.5 : 1.0; 
-    const baseForce = 0.008 * (30 / Math.pow(Math.max(1, player.mass), 0.18));
-    const force = baseForce * boostMult;
+    const boostMult = player.isBoosting ? 2.0 : 1.0; 
+    const finalMult = boostMult * (player.speedMult || 1.0);
+    // REDUCED GAP: Acceleration proportional to 1/mass^0.2 (was 0.4)
+    const force = CONFIG.baseForce * Math.pow(player.mass / 30, 0.8) * finalMult;
     
     Matter.Body.applyForce(player.body, player.body.position, { 
       x: joystick.vector.x * force, 
@@ -804,11 +810,11 @@ function handleInputs() {
 }
 
 function triggerBoostParticles(ent) {
-  if (Math.random() > 0.4) return;
+  if (Math.random() > 0.6) return; // Increased frequency
   const frag = new PIXI.Graphics();
-  const s = 2 + Math.random() * 3;
+  const s = 3 + Math.random() * 4; // Slightly larger
   frag.circle(0, 0, s);
-  frag.fill({ color: 0xFFFFFF, alpha: 0.5 });
+  frag.fill({ color: 0xFFFFFF, alpha: 0.8 }); // Higher opacity
   
   // Spawn behind movement
   const vel = ent.body.velocity;
@@ -836,145 +842,7 @@ function triggerBoostParticles(ent) {
   app.ticker.add(fUpdate);
 }
 
-function updateAI(npc, delta) {
-  if (npc.isDestroyed || isGameOver) return;
-  
-  // Rebirth Waiting Logic: Smart AI starts immediately, others wait ~1s
-  const waitTime = npc.isSmart ? 0 : 60;
-  const age = 180 - npc.protectionTime; // total protection is 180
-  if (age < waitTime) return;
 
-  // AI Decision Logic: Detect ALL entities
-  let avoidVec = { x: 0, y: 0 };
-  let target = null;
-  const visionRange = npc.isSmart ? 1200 : 800; 
-  
-  // NPC Sloppiness Logic (Human-like errors)
-  if (!npc.isSmart && Date.now() % 3 !== 0) return;
-
-  entities.forEach(other => {
-    if (other === npc || other.isDestroyed || other.protectionTime > 0) return;
-    const diff = Matter.Vector.sub(npc.body.position, other.body.position);
-    const distSq = Matter.Vector.magnitudeSquared(diff);
-    
-    if (distSq < visionRange * visionRange) {
-      if (other.mass > npc.mass * 1.1) {
-        const dist = Math.sqrt(distSq);
-        const weight = (visionRange - dist) / visionRange;
-        const norm = Matter.Vector.normalise(diff);
-        const tangent = { x: -norm.y, y: norm.x };
-        const steering = Matter.Vector.add(norm, Matter.Vector.mult(tangent, 0.4));
-        avoidVec = Matter.Vector.add(avoidVec, Matter.Vector.mult(steering, weight * 2));
-        
-        // Boost only if threat is very close
-        if (!npc.isBoosting && dist < 400 && npc.mass > CONFIG.initialMass * 1.1) {
-          npc.isBoosting = true;
-          npc.boostBudget = npc.mass * (npc.isSmart ? 0.15 : 0.05);
-        }
-      } else if (npc.mass > other.mass * 1.2) {
-        let minRatio = npc.isSmart ? 1.05 : 1.2;
-        if (npc.mass > other.mass * minRatio) {
-          if (!target || distSq < Matter.Vector.magnitudeSquared(Matter.Vector.sub(target.body.position, npc.body.position))) {
-            target = other;
-          }
-        }
-      }
-    }
-  });
-
-  // INTEGRATED VIRUS AVOIDANCE (Merge into avoidVec)
-  viruses.forEach(v => {
-    const diff = Matter.Vector.sub(npc.body.position, v.body.position);
-    const distSq = Matter.Vector.magnitudeSquared(diff);
-    const virusAvoidRange = 350;
-    if (distSq < virusAvoidRange * virusAvoidRange) {
-      const dist = Math.sqrt(distSq);
-      const weight = (virusAvoidRange - dist) / virusAvoidRange;
-      avoidVec = Matter.Vector.add(avoidVec, Matter.Vector.mult(Matter.Vector.normalise(diff), weight * 3));
-    }
-  });
-
-  if (avoidVec.x !== 0 || avoidVec.y !== 0) {
-    const fleeVec = Matter.Vector.normalise(avoidVec);
-    applyNPCForce(npc, fleeVec, npc.isSmart ? 1.7 : 1.2); 
-    // No return here, allow target/food checking to still influence (slightly)
-  }
-
-  if (target && (avoidVec.x === 0 && avoidVec.y === 0)) {
-    const diff = Matter.Vector.sub(target.body.position, npc.body.position);
-    const distSq = Matter.Vector.magnitudeSquared(diff);
-    const chaseVec = Matter.Vector.normalise(diff);
-    applyNPCForce(npc, chaseVec, npc.isSmart ? 1.8 : 0.9); // Buffed Smart AI chase speed
-    
-    // NPC Budget Management: Start boost if target is within reach
-    let attackDist = npc.isSmart ? 600 : 350;
-    if (!npc.isBoosting && distSq < attackDist * attackDist && npc.mass > CONFIG.initialMass * 1.5) {
-      npc.isBoosting = true;
-      npc.boostBudget = npc.mass * (npc.isSmart ? 0.25 : 0.1); 
-    }
-    return;
-  }
-
-  // Idle state
-  npc.isBoosting = false;
-  // Food hunting with Forward Bias (Preffering nodes in front)
-  let nearestNode = null;
-  let minScore = 1200 * 1200;
-  
-  const vel = npc.body.velocity;
-  const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
-  const velNorm = speed > 0.1 ? { x: vel.x / speed, y: vel.y / speed } : { x: 0, y: 0 };
-
-  nodes.forEach(node => {
-    const diff = Matter.Vector.sub(node.body.position, npc.body.position);
-    const dSq = Matter.Vector.magnitudeSquared(diff);
-    const dist = Math.sqrt(dSq);
-    const diffNorm = dist > 0 ? { x: diff.x / dist, y: diff.y / dist } : { x: 0, y: 0 };
-    
-    // Forward Sector Logic: Prefer nodes within a ~120 degree cone in front (dot > 0.5)
-    const dot = velNorm.x * diffNorm.x + velNorm.y * diffNorm.y;
-    
-    // High penalty for anything outside the forward cone to keep movement consistent
-    const isInForwardRange = dot > 0.5;
-    const bias = isInForwardRange ? 1.0 : 10.0; 
-    const score = dSq * bias;
-
-    if (score < minScore) { 
-      minScore = score; 
-      nearestNode = node; 
-    }
-  });
-
-  if (nearestNode) {
-    let diff = Matter.Vector.sub(nearestNode.body.position, npc.body.position);
-    
-    // Add drift for standard NPCs to make them less perfect
-    if (!npc.isSmart) {
-      const time = Date.now() / 1000;
-      const drift = { 
-        x: Math.sin(time + npc.body.id) * 150, 
-        y: Math.cos(time + npc.body.id) * 150 
-      };
-      diff = Matter.Vector.add(diff, drift);
-    }
-    
-    applyNPCForce(npc, Matter.Vector.normalise(diff), 0.6); 
-  } else {
-    const wander = { x: Math.cos(Date.now()/4000 + npc.body.id), y: Math.sin(Date.now()/4000 + npc.body.id) };
-    applyNPCForce(npc, wander, 0.25); 
-  }
-
-  // Virus Avoidance for weak NPCs
-  if (npc.mass < CONFIG.virusMinMass) {
-    viruses.forEach(v => {
-      const dSq = Matter.Vector.magnitudeSquared(Matter.Vector.sub(v.body.position, npc.body.position));
-      if (dSq < 250 * 250) {
-        const flee = Matter.Vector.normalise(Matter.Vector.sub(npc.body.position, v.body.position));
-        applyNPCForce(npc, flee, 1.5); // Panic flee
-      }
-    });
-  }
-}
 
 
 
@@ -1022,6 +890,36 @@ function triggerNodePickupVFX(x, y, color) {
   }
 }
 
+function triggerRarePickupVFX(x, y) {
+  for (let i = 0; i < 24; i++) {
+    const p = new PIXI.Graphics();
+    const size = 4 + Math.random() * 6;
+    p.poly([0, -size, size/2, size/2, -size/2, size/2]);
+    p.fill({ color: 0xFFD700, alpha: 1 });
+    p.x = x; p.y = y;
+    app.stage.addChild(p);
+    
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 5 + Math.random() * 10;
+    const vx = Math.cos(angle) * speed;
+    const vy = Math.sin(angle) * speed;
+    let life = 1.0;
+    
+    const pUpdate = (d) => {
+      p.x += vx * d.deltaTime;
+      p.y += vy * d.deltaTime;
+      p.rotation += 0.2 * d.deltaTime;
+      life -= 0.02 * d.deltaTime;
+      p.alpha = life;
+      if (life <= 0) {
+        app.stage.removeChild(p);
+        app.ticker.remove(pUpdate);
+      }
+    };
+    app.ticker.add(pUpdate);
+  }
+}
+
 function checkCollisions(ent) {
   if (ent.isDestroyed) return;
   
@@ -1041,8 +939,8 @@ function checkCollisions(ent) {
     if (dSq < radius * radius) {
       let addedMass = node.customMass || (node.isSpecial ? CONFIG.specialNodeMass : CONFIG.nodeMass);
       
-      // NPC Nerf: They only gain 70% of the mass from nodes
-      if (!ent.isPlayer) addedMass *= 0.7;
+      // UNIFIED: All entities gain 100% mass from nodes
+      // No more NPC nerf
       
       if (ent.isBoosting) addedMass *= 0.5; // Penalty for eating while boosting
       
@@ -1055,11 +953,30 @@ function checkCollisions(ent) {
         triggerNodePickupVFX(nPos.x, nPos.y, node.isSpecial ? 0x00FFFF : 0xFFFFFF);
       }
 
-      app.stage.removeChild(node.graphics);
+      nodeLayer.removeChild(node.graphics);
       node.body.isDestroyed = true; 
       Matter.World.remove(world, node.body);
       nodes.splice(i, 1);
       spawnNode();
+    }
+  }
+
+  // 1.2 Powerups (ONLY PLAYER CAN PICK UP RARE ITEMS)
+  for (let i = powerups.length - 1; i >= 0; i--) {
+    const p = powerups[i];
+    const dSq = Matter.Vector.magnitudeSquared(Matter.Vector.sub(p.body.position, pos));
+    if (dSq < (radius + 20) * (radius + 20)) {
+      if (p.type === 'rareItem' && ent.isPlayer) {
+        ent.mass += CONFIG.rareItemMass;
+        ent.speedMult += 0.2; // Add 20% speed
+        showFloatingText(p.body.position.x, p.body.position.y, "GODSPEED +20% | MASS +500", 0xFFFFFF);
+        screenShake = 50;
+        triggerRarePickupVFX(p.body.position.x, p.body.position.y);
+        
+        p.body.isDestroyed = true;
+        Matter.World.remove(world, p.body);
+        powerups.splice(i, 1);
+      }
     }
   }
 
@@ -1070,52 +987,41 @@ function checkCollisions(ent) {
     const rV = 60; // Virus radius
     if (dSq < (radius + rV) * (radius + rV)) {
       if (ent.mass < CONFIG.virusMinMass) {
-        shatterEntity(ent); // Instant death for weak entities
+        // SOFT PHYSICS: Spring-like repulsion for small entities
+        const dist = Math.sqrt(dSq);
+        const overlap = (radius + rV) - dist;
+        const pushDir = Matter.Vector.normalise(Matter.Vector.sub(pos, v.body.position));
+        
+        // Very soft push when overlapping, allowing them to "hide" but feel the edge
+        const springK = 0.0015; // Increased repulsion (was 0.0002)
+        Matter.Body.applyForce(ent.body, pos, Matter.Vector.mult(pushDir, overlap * springK));
+        
+        // Slight damping inside virus to feel "fluid"
+        Matter.Body.setVelocity(ent.body, Matter.Vector.mult(ent.body.velocity, 0.98));
       } else {
-        // High mass entity: Collision and release
-        ent.mass -= CONFIG.virusMassLoss;
-        releaseFragments(v.body.position.x, v.body.position.y, CONFIG.virusMassLoss * 3, ent);
-        if (ent.isPlayer) screenShake = 15;
-        
-        // Destroy the virus after one split
-        app.stage.removeChild(v.graphics);
-        Matter.World.remove(world, v.body);
-        viruses.splice(i, 1);
-        i--;
-        
-        // Respawn a new virus elsewhere after a delay
-        setTimeout(spawnVirus, 15000);
+        // High mass entity: 30% mass loss (Agar.io style penalty)
+        // ONLY TRIGGER IF COVERED: Center must be well within the player radius
+        const dist = Math.sqrt(dSq);
+        if (dist < radius * 0.7) {
+          const massLoss = ent.mass * 0.3;
+          ent.mass -= massLoss;
+          releaseFragments(v.body.position.x, v.body.position.y, massLoss * 1.5, ent);
+          if (ent.isPlayer) screenShake = 20;
+          
+          // Destroy the virus after one split
+          virusLayer.removeChild(v.graphics);
+          Matter.World.remove(world, v.body);
+          viruses.splice(i, 1);
+          i--;
+          
+          // Respawn a new virus elsewhere after a delay
+          setTimeout(spawnVirus, 15000);
+        }
       }
     }
   }
 
-  // 2. Combat (STILL BLOCKED during protection)
-  if (ent.protectionTime > 0) return;
-
-  entities.forEach(other => {
-    if (ent === other || other.isDestroyed || other.protectionTime > 0) return;
-    const d = Matter.Vector.magnitude(Matter.Vector.sub(other.body.position, ent.body.position));
-    const r1 = calculateRadius(ent.mass);
-    const r2 = calculateRadius(other.mass);
-
-    if (d < (r1 + r2) * 1.1) {
-      if (other.isDestroyed) return;
-      let relVel = Matter.Vector.sub(ent.body.velocity, other.body.velocity);
-      // Safety: If relative velocity is NaN, use a default impact
-      if (!Number.isFinite(relVel.x)) relVel = {x:0, y:0};
-      const impact = Matter.Vector.magnitude(relVel);
-      
-      // COMBAT LOGIC: Pure mass-based competition
-      const entPower = ent.mass;
-      const otherPower = other.mass;
-
-    if (entPower > otherPower) {
-        ent.mass += other.mass * 0.5;
-        if (ent.isPlayer || other.isPlayer) screenShake = 20;
-        shatterEntity(other);
-      }
-    }
-  });
+  // 2. Combat (Integrated into main update loop)
 }
 
 function shatterEntity(ent) {
@@ -1161,8 +1067,9 @@ function shatterEntity(ent) {
   if (ent.isPlayer) {
     isGameOver = true;
     document.getElementById('game-over').style.display = 'flex';
+    document.querySelector('.ui-overlay').style.display = 'none';
   }
-  app.stage.removeChild(ent.container);
+  entityLayer.removeChild(ent.container);
   if (ent.indicator) {
     ent.indicator.visible = false;
     app.stage.removeChild(ent.indicator);
@@ -1190,32 +1097,14 @@ function shatterEntity(ent) {
   }
 }
 
-function applyNPCForce(ent, vec, multiplier) {
-  // WALL AVOIDANCE: Inject a push-back force if near world boundaries
-  const margin = 200;
-  const avoidanceStrength = 1.5;
-  let avoidanceVec = { x: 0, y: 0 };
-  const pos = ent.body.position;
-  
-  if (pos.x < margin) avoidanceVec.x += (margin - pos.x) / margin;
-  if (pos.x > CONFIG.worldSize - margin) avoidanceVec.x -= (pos.x - (CONFIG.worldSize - margin)) / margin;
-  if (pos.y < margin) avoidanceVec.y += (margin - pos.y) / margin;
-  if (pos.y > CONFIG.worldSize - margin) avoidanceVec.y -= (pos.y - (CONFIG.worldSize - margin)) / margin;
 
-  const finalVec = Matter.Vector.normalise({
-    x: vec.x + avoidanceVec.x * avoidanceStrength,
-    y: vec.y + avoidanceVec.y * avoidanceStrength
-  });
-
-  const baseForce = 0.007 * (30 / Math.pow(Math.max(1, ent.mass), 0.18));
-  const boostMult = ent.isBoosting ? 1.5 : 1.0;
-  Matter.Body.applyForce(ent.body, ent.body.position, Matter.Vector.mult(finalVec, baseForce * multiplier * boostMult));
-}
 
 // --- Inputs ---
 function setupInputs() {
-  window.addEventListener('keydown', e => keys[e.code] = true);
-  window.addEventListener('keyup', e => keys[e.code] = false);
+  window.addEventListener('mousemove', (e) => {
+    mousePos.x = e.clientX;
+    mousePos.y = e.clientY;
+  });
 
   const skillBtn = document.getElementById('skill-btn');
   
@@ -1273,7 +1162,7 @@ function spawnVirus() {
     const dx = node.body.position.x - x;
     const dy = node.body.position.y - y;
     if (dx * dx + dy * dy < clearanceR * clearanceR) {
-      app.stage.removeChild(node.graphics);
+      nodeLayer.removeChild(node.graphics);
       Matter.World.remove(world, node.body);
       nodes.splice(i, 1);
       // We'll replace nodes AFTER the full cleanup loop to avoid recursion issues
@@ -1315,7 +1204,7 @@ function spawnVirus() {
       graphics.quadraticCurveTo(peakX, peakY, endX, endY);
     }
     graphics.closePath();
-    graphics.fill({ color: 0x330055, alpha: 0.7 });
+    graphics.fill({ color: 0x330055, alpha: 1.0 });
     graphics.stroke({ width: 6, color: 0xAA00FF, alpha: 1, join: 'round' });
     
     graphics.x = body.position.x;
@@ -1323,63 +1212,145 @@ function spawnVirus() {
   };
   
   app.ticker.add(vUpdate);
-  app.stage.addChildAt(graphics, 2);
+  virusLayer.addChild(graphics);
   viruses.push(v);
   Matter.World.add(world, body);
 }
 
+function spawnRareItem() {
+  if (isGameOver || !isGameRunning) return;
+  const x = Math.random() * CONFIG.worldSize;
+  const y = Math.random() * CONFIG.worldSize;
+  
+  const body = Matter.Bodies.circle(x, y, 40, { isSensor: true, label: 'rareItem' });
+  const container = new PIXI.Container();
+  container.x = x; container.y = y;
+
+  const graphics = new PIXI.Graphics();
+  container.addChild(graphics);
+
+  // ADD GLOW EFFECT
+  const glow = new PIXI.Graphics();
+  glow.circle(0, 0, 60);
+  glow.fill({ color: 0xFFFFFF, alpha: 0.2 });
+  container.addChildAt(glow, 0);
+
+  const wobbleOffset = Math.random() * 10;
+  let t = 0;
+  const update = (d) => {
+    t += 0.05 * d.deltaTime;
+    graphics.clear();
+    
+    // Use the same Jelly wobble logic as players/NPCs
+    const points = 32;
+    const radius = 40;
+    const time = Date.now() * 0.003 + wobbleOffset;
+    
+    graphics.beginPath();
+    for (let i = 0; i <= points; i++) {
+      const angle = (i / points) * Math.PI * 2;
+      const wobble = Math.sin(angle * 3 + time) * 3 + Math.cos(angle * 5 - time * 0.5) * 2;
+      const r = radius + wobble;
+      const px = Math.cos(angle) * r;
+      const py = Math.sin(angle) * r;
+      if (i === 0) graphics.moveTo(px, py);
+      else graphics.lineTo(px, py);
+    }
+    graphics.closePath();
+    graphics.fill({ color: 0xFFFFFF, alpha: 0.95 });
+    graphics.stroke({ width: 6, color: 0xFFFFFF, alpha: 0.4, join: 'round' });
+
+    glow.scale.set(1 + Math.sin(t * 0.5) * 0.2);
+    container.scale.set(1 + Math.sin(t) * 0.05);
+
+    if (body.isDestroyed) {
+      powerupLayer.removeChild(container);
+      app.ticker.remove(update);
+    }
+  };
+  app.ticker.add(update);
+
+  powerups.push({ body, container, type: 'rareItem' });
+  Matter.World.add(world, body);
+}
+
 function releaseFragments(x, y, totalMass, triggerer) {
-  const count = 20;
+  const count = 6; // Fewer but larger fragments
   const massPerFrag = totalMass / count;
   const trigRadius = calculateRadius(triggerer.mass);
+  const fragRadius = calculateRadius(30); // Size of 30 mass entity
   
   for (let i = 0; i < count; i++) {
     const angle = Math.random() * Math.PI * 2;
-    // Spawn at virus center but give high initial push
-    const fx = x;
-    const fy = y;
-    
-    const body = Matter.Bodies.circle(fx, fy, 15, { isSensor: true, label: 'node' });
+    const body = Matter.Bodies.circle(x, y, fragRadius, { isSensor: true, label: 'node' });
     const graphics = new PIXI.Graphics();
     
-    graphics.circle(0, 0, 15);
-    graphics.fill({ color: 0xFFFFFF, alpha: 0.9 });
-    graphics.stroke({ width: 3, color: 0xAA00FF, alpha: 1 });
+    // Draw MINI-VIRUS spikes
+    const points = 8;
+    const innerR = fragRadius * 0.7;
+    const outerR = fragRadius;
+    graphics.beginPath();
+    for (let j = 0; j < points; j++) {
+      const a = (j / points) * Math.PI * 2;
+      const na = ((j + 1) / points) * Math.PI * 2;
+      const ma = (a + na) / 2;
+      const sx = Math.cos(a) * innerR;
+      const sy = Math.sin(a) * innerR;
+      const px = Math.cos(ma) * outerR;
+      const py = Math.sin(ma) * outerR;
+      const ex = Math.cos(na) * innerR;
+      const ey = Math.sin(na) * innerR;
+      if (j === 0) graphics.moveTo(sx, sy);
+      graphics.quadraticCurveTo(px, py, ex, ey);
+    }
+    graphics.closePath();
+    graphics.fill({ color: 0x330055, alpha: 1.0 });
+    graphics.stroke({ width: 3, color: 0xAA00FF, alpha: 1, join: 'round' });
     
-    app.stage.addChildAt(graphics, 1);
-    const nodeObj = { body, graphics, isSpecial: true, customMass: massPerFrag, pickupDelay: 60 }; 
+    nodeLayer.addChild(graphics); // Ensure it's on the correct layer
+    const nodeObj = { body, graphics, isSpecial: true, customMass: massPerFrag, pickupDelay: 100 }; 
     nodes.push(nodeObj);
     Matter.World.add(world, body);
     
-    // Initial burst: Fast enough to clear the triggerer's radius
-    const burstForce = (trigRadius / 20) + 5 + Math.random() * 5; 
+    // Initial burst: Scaled back to be "just right" (about 2x original)
+    const burstForce = (trigRadius / 6) + 35 + Math.random() * 20; 
     Matter.Body.setVelocity(body, { 
       x: Math.cos(angle) * burstForce, 
       y: Math.sin(angle) * burstForce 
     });
 
     const fUpdate = (d) => {
-      if (nodeObj.pickupDelay > 0) {
-        nodeObj.pickupDelay -= d.deltaTime;
-        graphics.alpha = 0.3 + Math.sin(Date.now() * 0.02) * 0.2;
-      } else {
+      // DYNAMIC PICKUP: Only allow pickup when fragment has slowed down significantly
+      const vel = body.velocity;
+      const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
+      
+      if (speed < 2.0) {
+        nodeObj.pickupDelay = 0;
         graphics.alpha = 0.9;
+      } else {
+        nodeObj.pickupDelay = 60; // Keep it blocked while fast
+        graphics.alpha = 0.4 + Math.sin(Date.now() * 0.01) * 0.2; // Pulsing while flying
       }
+
+      // WORLD BOUNDARY BOUNCE: Prevent fragments from flying out of map
+      const margin = 20;
+      if (body.position.x < margin) Matter.Body.setVelocity(body, { x: Math.abs(body.velocity.x) * 0.5, y: body.velocity.y });
+      if (body.position.x > CONFIG.worldSize - margin) Matter.Body.setVelocity(body, { x: -Math.abs(body.velocity.x) * 0.5, y: body.velocity.y });
+      if (body.position.y < margin) Matter.Body.setVelocity(body, { x: body.velocity.x, y: Math.abs(body.velocity.y) * 0.5 });
+      if (body.position.y > CONFIG.worldSize - margin) Matter.Body.setVelocity(body, { x: body.velocity.x, y: -Math.abs(body.velocity.y) * 0.5 });
 
       graphics.x = body.position.x;
       graphics.y = body.position.y;
       graphics.rotation += 0.05 * d.deltaTime;
 
-      // DYNAMIC FRICTION: Rapidly slow down after clearing most of the radius
-      const vel = body.velocity;
-      const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
+      // DYNAMIC FRICTION: Adjusted for a balanced travel distance
       if (speed > 0.1) {
-        const friction = 0.85; // Heavy friction
+        const friction = 0.955; // Slightly heavier than 0.982
         Matter.Body.setVelocity(body, { x: vel.x * friction, y: vel.y * friction });
       }
 
       if (body.isDestroyed) {
-        app.stage.removeChild(graphics);
+        nodeLayer.removeChild(graphics);
         app.ticker.remove(fUpdate);
       }
     };
@@ -1388,12 +1359,16 @@ function releaseFragments(x, y, totalMass, triggerer) {
 }
 
 function updateLivesUI() {
-  const container = document.getElementById('lives-container');
-  container.innerHTML = '';
-  for (let i = 0; i < 3; i++) {
-    const heart = document.createElement('div');
-    heart.className = `heart ${i < player.lives ? '' : 'lost'}`;
-    container.appendChild(heart);
+  const heart = document.getElementById('central-heart');
+  if (!heart) return;
+  
+  heart.className = ''; // Reset
+  if (player.lives >= 2) {
+    heart.classList.add('heart-full');
+  } else if (player.lives === 1) {
+    heart.classList.add('heart-half');
+  } else {
+    heart.classList.add('heart-empty');
   }
 }
 
@@ -1474,9 +1449,10 @@ function renderMinimap() {
 function winGame() {
   isGameOver = true;
   isGameRunning = false;
-  const timeStr = document.getElementById('game-timer').innerText;
+  const timeStr = document.getElementById('timer-text').innerText;
   document.getElementById('victory-screen').style.display = 'flex';
   document.getElementById('victory-time-label').innerText = `總計時間：${timeStr}`;
+  document.querySelector('.ui-overlay').style.display = 'none';
   saveHistory(timeStr);
 }
 
@@ -1499,6 +1475,72 @@ function loadHistory() {
 }
 
 window.restartGame = () => location.reload();
+
+// PAUSE SYSTEM
+function togglePause() {
+  if (!isGameRunning || isGameOver) return;
+  isPaused = !isPaused;
+  const pauseMenu = document.getElementById('pause-menu');
+  const uiOverlay = document.querySelector('.ui-overlay');
+  
+  if (isPaused) {
+    pauseMenu.style.display = 'flex';
+    uiOverlay.style.display = 'none';
+  } else {
+    pauseMenu.style.display = 'none';
+    uiOverlay.style.display = 'block';
+  }
+}
+
+// PWA INSTALL LOGIC
+let deferredPrompt;
+const installBtn = document.getElementById('install-pwa-btn');
+
+// Check if already in standalone mode
+const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+if (isStandalone && installBtn) {
+  installBtn.style.display = 'none';
+}
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  // If we are already in standalone, don't show the button
+  if (window.matchMedia('(display-mode: standalone)').matches) return;
+  
+  e.preventDefault();
+  deferredPrompt = e;
+  if (installBtn) {
+    installBtn.style.display = 'block';
+    installBtn.innerText = '安裝應用程式';
+  }
+});
+
+if (installBtn) {
+  installBtn.addEventListener('click', async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      installBtn.style.display = 'none';
+    }
+    deferredPrompt = null;
+  });
+}
+
+window.addEventListener('appinstalled', () => {
+  console.log('PWA was installed');
+  if (installBtn) installBtn.style.display = 'none';
+  deferredPrompt = null;
+});
+
+// Event Listeners for Pause
+document.getElementById('pause-btn').addEventListener('click', togglePause);
+document.getElementById('p-resume-btn').addEventListener('click', togglePause);
+
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    togglePause();
+  }
+});
 
 init();
 

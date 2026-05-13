@@ -1,36 +1,51 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Null Vector">
-    <title>Null Vector | 零向量</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&display=swap" rel="stylesheet">
-  </head>
-  <body>
-    <div id="app">
-      <!-- UI Overlay -->
-      <div class="ui-overlay">
-        <div class="top-left">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Null Vector">
+  <title>Null Vector | 零向量</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&display=swap" rel="stylesheet">
+  <link rel="manifest" href="/manifest.json">
+</head>
+
+<body>
+  <div id="app">
+    <!-- Orientation Warning -->
+    <div id="orientation-warning">
+      <div class="warning-icon"></div>
+      <p>請旋轉設備以獲得最佳遊戲體驗</p>
+    </div>
+    <!-- UI Overlay -->
+    <div class="ui-overlay">
+      <div class="top-left">
+        <div id="pause-btn" class="pause-btn glass">
+          <div class="pause-icon"></div>
+        </div>
         <div id="minimap-container" class="glass">
           <canvas id="minimap"></canvas>
         </div>
-        <div id="lives-container" class="lives-container">
-          <!-- Hearts -->
+      </div>
+
+      <div id="game-timer" class="game-timer">
+        <span id="timer-text">00:00</span>
+        <div id="central-heart-container" class="central-heart-container">
+          <div id="central-heart" class="heart-full"></div>
         </div>
       </div>
 
-      <div id="game-timer" class="game-timer">00:00</div>
-   <!-- Leaderboard -->
-        <div class="leaderboard glass">
-          <h2>排行榜</h2>
-          <div id="leaderboard-list">
+      <!-- Leaderboard -->
+      <div class="leaderboard glass">
+        <h2>排行榜</h2>
+        <div id="leaderboard-list">
           <!-- Items will be injected here -->
         </div>
         <div id="survival-stats" class="survival-stats">
@@ -38,92 +53,168 @@
         </div>
       </div>
 
-        <!-- Controls UI -->
-        <div class="controls-ui">
-          <!-- Left: Joystick -->
-          <div class="joystick-zone" id="joystick-container">
-            <div class="joystick-base"></div>
-            <div class="joystick-thumb" id="joystick-thumb"></div>
-          </div>
+      <!-- Controls UI -->
+      <div class="controls-ui">
+        <!-- Left: Joystick -->
+        <div class="joystick-zone" id="joystick-container">
+          <div class="joystick-base"></div>
+          <div class="joystick-thumb" id="joystick-thumb"></div>
+        </div>
 
-          <!-- Right: Skill Button -->
-          <div class="skill-button-zone">
-            <div class="skill-btn" id="skill-btn">
-              <span class="skill-name">加速</span>
-            </div>
+        <!-- Right: Skill Button -->
+        <div class="skill-button-zone">
+          <div class="skill-btn" id="skill-btn">
+            <span class="skill-name">加速</span>
           </div>
         </div>
       </div>
+    </div> <!-- End ui-overlay -->
 
-      <!-- Start Menu -->
-      <div id="start-menu">
-        <div class="menu-container">
-          <div class="menu-content glass">
-            <h1 class="menu-title">NULL VECTOR</h1>
-            <p class="menu-subtitle">SURVIVE. GROW. WIN.</p>
-            
-            <input type="text" id="player-name-input" maxlength="12" placeholder="輸入玩家名稱" value="PLAYER">
-            
-            <button id="start-btn" class="primary-btn">開始遊戲</button>
+    <!-- Start Menu -->
+    <div id="start-menu">
+      <div class="menu-container">
+        <div class="menu-content glass">
+          <h1 class="menu-title">NULL VECTOR</h1>
+          <p class="menu-subtitle">SURVIVE. GROW. WIN.</p>
 
-            <div class="history-panel">
-              <div class="history-label">歷史紀錄 (獲勝時間)</div>
-              <div id="history-list"></div>
+          <input type="text" id="player-name-input" maxlength="12" placeholder="輸入玩家名稱" value="PLAYER">
+
+          <button id="start-btn" class="primary-btn">開始遊戲</button>
+          <button id="install-pwa-btn" class="secondary-btn" style="display: none;">安裝應用程式</button>
+
+          <div class="history-panel">
+            <div class="history-label">歷史紀錄 (獲勝時間)</div>
+            <div id="history-list"></div>
+          </div>
+        </div>
+
+        <div class="guide-panel glass">
+          <div class="guide-section">
+            <h3>核心操作</h3>
+            <div class="guide-item">
+              <div class="icon-box">
+                <svg viewBox="-20 -20 40 40" class="svg-legend">
+                  <path d="M-15 0 A15 15 0 1 0 15 0 A15 15 0 1 0 -15 0" fill="#FFF" />
+                  <rect x="-3" y="-8" width="6" height="16" fill="#000" />
+                  <rect x="-8" y="-3" width="16" height="6" fill="#000" />
+                </svg>
+              </div>
+              <div class="guide-text"><b>靈活移動</b><br>使用搖桿或 WASD 操控，體型越小越靈活。</div>
+            </div>
+            <div class="guide-item">
+              <div class="icon-box">
+                <svg viewBox="-20 -20 40 40" class="svg-legend boost-svg">
+                  <path d="M-15 5 L0 -15 L15 5 L8 5 L8 15 L-8 15 L-8 5 Z" fill="#FFF" />
+                </svg>
+              </div>
+              <div class="guide-text"><b>持續加速</b><br>長按以大幅提升移動速度，期間會緩慢消耗質量。</div>
             </div>
           </div>
 
-          <div class="guide-panel glass">
-            <div class="guide-section">
-              <h3>操作說明</h3>
-              <div class="guide-item">
-                <div class="icon-box"><div class="joy-icon"></div></div>
-                <div class="guide-text"><b>移動</b><br>虛擬搖桿 / WASD</div>
+          <div class="guide-section">
+            <h3>資源與發育</h3>
+            <div class="guide-item">
+              <div class="icon-box">
+                <svg viewBox="-10 -10 20 20" class="svg-legend rotate-anim">
+                  <rect x="-4" y="-4" width="8" height="8" rx="2" fill="rgba(255,255,255,0.3)"
+                    stroke="rgba(255,255,255,0.7)" stroke-width="2" />
+                </svg>
               </div>
-              <div class="guide-item">
-                <div class="icon-box"><div class="boost-icon"></div></div>
-                <div class="guide-text"><b>加速</b><br>加速按鈕 / 滑鼠左鍵</div>
-              </div>
+              <div class="guide-text"><b>能量點</b><br>全場散落的能量 (+2 質量)</div>
             </div>
-
-            <div class="guide-section">
-              <h3>遊戲機制</h3>
-              <div class="guide-item">
-                <div class="icon-box"><div class="grow-icon"></div></div>
-                <div class="guide-text"><b>成長</b><br>收集散落的經驗點</div>
+            <div class="guide-item">
+              <div class="icon-box">
+                <svg viewBox="-25 -25 50 50" class="svg-legend prism-group">
+                  <path class="prism-outer" d="M-12 0 L0 -16 L12 0 L0 16 Z" fill="none" stroke="#00FFFF"
+                    stroke-width="3" stroke-linejoin="round" />
+                  <path class="prism-inner" d="M-6 0 L0 -9 L6 0 L0 9 Z" fill="rgba(0,255,255,0.5)" />
+                </svg>
               </div>
-              <div class="guide-item">
-                <div class="icon-box"><div class="win-icon"></div></div>
-                <div class="guide-text"><b>獲勝</b><br>成為最後的倖存者</div>
+              <div class="guide-text"><b>稜鏡</b><br>雙層旋轉的稜鏡，含較多能量 (+10 質量)</div>
+            </div>
+            <div class="guide-item">
+              <div class="icon-box">
+                <svg viewBox="-30 -30 60 60" class="svg-legend rotate-anim">
+                  <circle cx="0" cy="0" r="18" fill="#FFF" />
+                  <circle cx="0" cy="0" r="25" fill="none" stroke="#FFF" stroke-width="2" stroke-dasharray="4 4" />
+                </svg>
               </div>
+              <div class="guide-text"><b>九九成稀罕物</b><br>全場僅出現一次 (+500 質量, +20% 速度)</div>
             </div>
           </div>
-        </div>
-      </div>
 
-      <!-- Victory Screen -->
-      <div id="victory-screen">
-        <div class="victory-content glass">
-          <h1 class="victory-title">獲得勝利</h1>
-          <p id="victory-time-label"></p>
-          <button onclick="location.reload()" class="primary-btn">重新開始</button>
-        </div>
-      </div>
-
-      <!-- Respawn Countdown -->
-      <div id="respawn-overlay">
-        <div id="respawn-countdown">3</div>
-        <p style="letter-spacing: 5px; opacity: 0.5; margin-top: 20px;">準備復活中...</p>
-      </div>
-
-      <!-- Game Over -->
-      <div id="game-over">
-        <div class="game-over-content">
-          <h1 class="game-over-title">遊戲結束</h1>
-          <p style="opacity: 0.6;">已被淘汰</p>
-          <button class="reboot-btn" onclick="restartGame()">重新開始</button>
+          <div class="guide-section">
+            <h3>對抗機制</h3>
+            <div class="guide-item">
+              <div class="icon-box">
+                <div class="legend-eat pulse"></div>
+              </div>
+              <div class="guide-text"><b>吞噬判定</b><br>大於目標 1.25 倍時，接近並包覆目標以吞噬。</div>
+            </div>
+            <div class="guide-item">
+              <div class="icon-box">
+                <svg viewBox="-50 -50 100 100" class="svg-legend virus-rotate">
+                  <path
+                    d="M 30,0 Q 47.5,15.4 24.2,17.6 Q 38.6,33.5 15.4,24.2 Q 22.1,43.7 0,30 Q -22.1,43.7 -15.4,24.2 Q -38.6,33.5 -24.2,17.6 Q -47.5,15.4 -30,0 Q -47.5,-15.4 -24.2,-17.6 Q -38.6,-33.5 -15.4,-24.2 Q -22.1,-43.7 0,-30 Q 22.1,-43.7 15.4,-24.2 Q 38.6,-33.5 24.2,-17.6 Q 47.5,-15.4 30,0 Z"
+                    fill="#305" stroke="#A0F" stroke-width="4" stroke-linejoin="round" />
+                </svg>
+              </div>
+              <div class="guide-text"><b>分裂</b><br>大於500質量時，碰觸會損失質量並爆出大量經驗塊；小於500質量時，不受影響。</div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
-    <script type="module" src="/src/main.js"></script>
-  </body>
+
+    <!-- Victory Screen -->
+    <div id="victory-screen">
+      <div class="victory-content">
+        <h1 class="victory-title">獲得勝利</h1>
+        <p id="victory-time-label"></p>
+        <button onclick="location.reload()" class="end-game-btn">重新開始</button>
+      </div>
+    </div>
+
+    <div id="respawn-overlay">
+      <div id="respawn-countdown">3</div>
+      <p style="letter-spacing: 5px; opacity: 0.5; margin-top: 20px;">準備復活中...</p>
+    </div>
+
+    <!-- Pause Menu -->
+    <div id="pause-menu">
+      <div class="pause-content">
+        <h2 class="pause-title">遊戲暫停</h2>
+        <div class="pause-btn-group">
+          <div class="p-btn-wrapper" onclick="location.reload()">
+            <div class="p-circle-btn">
+              <div class="icon-home"></div>
+            </div>
+            <span>主選單</span>
+          </div>
+          <div class="p-btn-wrapper" onclick="restartGame()">
+            <div class="p-circle-btn">
+              <div class="icon-restart"></div>
+            </div>
+            <span>重新開始</span>
+          </div>
+          <div class="p-btn-wrapper" id="p-resume-btn">
+            <div class="p-circle-btn">
+              <div class="icon-resume"></div>
+            </div>
+            <span>繼續遊戲</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Game Over -->
+    <div id="game-over">
+      <h1 class="game-over-title">遊戲結束</h1>
+      <p class="game-over-subtitle">已被淘汰</p>
+      <button class="end-game-btn" onclick="restartGame()">重新開始</button>
+    </div>
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+
 </html>
