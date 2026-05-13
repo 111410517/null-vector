@@ -482,7 +482,7 @@ body.skill-channeling #app {
   width: 100vw;
   height: 100vh;
   background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(4px);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -495,7 +495,7 @@ body.skill-channeling #app {
 
 @keyframes menuFadeIn {
   0% { opacity: 0; transform: scale(1.1); backdrop-filter: blur(0px); }
-  100% { opacity: 1; transform: scale(1); backdrop-filter: blur(8px); }
+  100% { opacity: 1; transform: scale(1); backdrop-filter: blur(4px); }
 }
 
 #screen-effects-overlay {

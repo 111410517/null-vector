@@ -42,7 +42,7 @@ function calculateIntention(npc, { entities, viruses, nodes, powerups }) {
   const fleeRange = 600;
 
   // DEMO SCRIPTED LOGIC
-  if (npc.isDemoScripted) {
+  if (npc.isDemoScripted && npc.mass >= CONFIG.virusMinMass) {
     let nearestVirus = null;
     let minDist = Infinity;
     viruses.forEach(v => {
@@ -118,14 +118,15 @@ function calculateIntention(npc, { entities, viruses, nodes, powerups }) {
     const dist = Matter.Vector.magnitude(diff);
     if (dist < 600) {
       const norm = Matter.Vector.normalise(diff);
-      if (npc.mass >= CONFIG.virusMinMass) {
+      if (npc.mass >= CONFIG.virusMinMass && !npc.avoidViruses) {
         if (nearestThreatDist > 1200) {
           shatterForce = Matter.Vector.add(shatterForce, Matter.Vector.mult(Matter.Vector.neg(norm), 3));
         } else {
           fleeForce = Matter.Vector.add(fleeForce, Matter.Vector.mult(norm, 6));
         }
-      } else if (nearestThreatDist < 600) {
-        forageForce = Matter.Vector.add(forageForce, Matter.Vector.mult(Matter.Vector.neg(norm), 4));
+      } else {
+        // NPC 2 (avoidViruses) or small NPC: always flee viruses if close
+        fleeForce = Matter.Vector.add(fleeForce, Matter.Vector.mult(norm, 8));
       }
     }
   });

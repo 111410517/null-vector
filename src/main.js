@@ -132,14 +132,18 @@ async function init() {
   gameContainer.mask = mask;
   app.stage.addChild(mask); // Mask needs to be on stage to work correctly in some PIXI versions
 
-  // Initial NPCs (Demo background: spawn 3 NPCs)
+  // Initial NPCs (Demo background: spawn 3 specific NPCs)
   for (let i = 0; i < 3; i++) {
     const rx = CONFIG.worldSize / 2 + (Math.random() - 0.5) * 1500;
     const ry = CONFIG.worldSize / 2 + (Math.random() - 0.5) * 1500;
     if (i === 0) {
-      // Scripted NPC: 700 mass, aims for viruses
+      // NPC 1: 700 mass, aims for viruses
       spawnNPC(i, rx, ry, 700, true);
+    } else if (i === 1) {
+      // NPC 2: 500 mass, avoids viruses
+      spawnNPC(i, rx, ry, 500, false, true);
     } else {
+      // NPC 3: Normal
       spawnNPC(i, rx, ry);
     }
   }
@@ -200,7 +204,7 @@ function clearWorld() {
   player = null;
 }
 
-function spawnNPC(index, customX, customY, customMass, isDemoScripted) {
+function spawnNPC(index, customX, customY, customMass, isDemoScripted, avoidViruses) {
   const isSmart = isDemoScripted || (index < (CONFIG.npcCount * 0.5)); // Scripted are always smart
   let name;
   if (isDemoScripted) {
@@ -219,8 +223,9 @@ function spawnNPC(index, customX, customY, customMass, isDemoScripted) {
   const ent = createEntity(x, y, initialMass, name, false);
   ent.isSmart = isSmart;
   ent.isDemoScripted = isDemoScripted;
-  ent.protectionTime = 180;
-  ent.spawnDelay = 1000;
+  ent.avoidViruses = avoidViruses;
+  ent.protectionTime = customMass ? 0 : 180; // No protection for demo NPCs
+  ent.spawnDelay = customMass ? 0 : 1000;
   ent.efficiency = Math.random() > 0.5 ? 0.67 : 1.0;
 }
 
@@ -1812,13 +1817,15 @@ window.returnToMenu = () => {
   isGameOver = false;
   isPaused = false;
   
-  // 清理世界並重新生成原有的演示背景物件 (3個 NPC)
+  // 清理世界並重新生成原有的演示背景物件 (3個特定 NPC)
   clearWorld();
   for (let i = 0; i < 3; i++) {
     const rx = CONFIG.worldSize / 2 + (Math.random() - 0.5) * 1500;
     const ry = CONFIG.worldSize / 2 + (Math.random() - 0.5) * 1500;
     if (i === 0) {
       spawnNPC(i, rx, ry, 700, true);
+    } else if (i === 1) {
+      spawnNPC(i, rx, ry, 500, false, true);
     } else {
       spawnNPC(i, rx, ry);
     }
