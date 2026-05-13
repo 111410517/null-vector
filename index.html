@@ -11,19 +11,22 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Null Vector">
   <title>Null Vector | 零向量</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&display=swap" rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&family=Noto+Sans+TC:wght@400;700;900&display=swap"
+    rel="stylesheet">
   <link rel="manifest" href="/manifest.json">
 </head>
 
 <body>
   <div id="app">
-    <!-- Orientation Warning -->
-    <div id="orientation-warning">
-      <div class="warning-icon"></div>
-      <p>請旋轉設備以獲得最佳遊戲體驗</p>
+    <!-- Loading Screen -->
+    <div id="loading-screen">
+      <div class="loading-container">
+        <div class="loading-ball"></div>
+        <div class="loading-progress">0%</div>
+      </div>
     </div>
+
     <!-- UI Overlay -->
     <div class="ui-overlay">
       <div class="top-left">
@@ -78,39 +81,53 @@
           <!-- 左側 Tab 導航 (移至上方) -->
           <div class="tab-bar">
             <button class="tab-btn active" data-tab="history">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round">
+                <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
             </button>
             <button class="tab-btn" data-tab="skills">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round">
+                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path>
+              </svg>
             </button>
             <button class="tab-btn" data-tab="skins">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 00-10 10 10 10 0 0010 10 10 10 0 0010-10A10 10 0 0012 2z"></path><path d="M12 8a4 4 0 100 8 4 4 0 000-8z"></path></svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round">
+                <path d="M12 2a10 10 0 00-10 10 10 10 0 0010 10 10 10 0 0010-10A10 10 0 0012 2z"></path>
+                <path d="M12 8a4 4 0 100 8 4 4 0 000-8z"></path>
+              </svg>
             </button>
           </div>
 
           <!-- === 紀錄 Tab === -->
           <div id="tab-history" class="tab-page active">
             <div class="history-panel">
-              <div class="history-label">近期最佳時間</div>
+              <div class="history-label">近期最佳成績</div>
               <div id="history-list"></div>
             </div>
           </div>
 
           <!-- === 技能 Tab === -->
           <div id="tab-skills" class="tab-page">
-            <div class="skill-points-display" style="display:none">
-              技能點剩餘：<span id="skill-points-count">0</span>
-            </div>
-
-            <!-- 裝備中的技能 -->
-            <div id="equipped-skill-banner" class="equipped-skill-banner">
-              <div class="equipped-label">裝備中</div>
-              <div class="equipped-info">
-                <span id="equipped-skill-icon" class="equipped-icon">—</span>
-                <span id="equipped-skill-name">預設加速</span>
-                <span id="equipped-skill-level" class="skill-level-badge"></span>
+            <div class="skills-header-row">
+              <!-- 左側：裝備狀態 -->
+              <div class="equipped-skill-card glass">
+                <div class="equipped-label">裝備中</div>
+                <div class="equipped-info">
+                  <span id="equipped-skill-icon" class="equipped-icon">—</span>
+                  <span id="equipped-skill-name">預設加速</span>
+                </div>
               </div>
-              <button id="unequip-skill-btn" class="text-btn" style="display:none">卸下</button>
+
+              <!-- 右側：技能點數 -->
+              <div class="skill-points-card glass">
+                <div class="points-label">可用技能點</div>
+                <div class="points-value">
+                  <span id="skill-points-count">0</span>
+                </div>
+              </div>
             </div>
 
             <!-- 技能卡片網格 -->
@@ -118,7 +135,7 @@
               <div class="skill-card" data-skill="sprint">
                 <div class="skill-card-icon">↗</div>
                 <div class="skill-card-name">衝刺</div>
-                <div class="skill-card-desc">朝移動方向瞬間位移，擁有 2 次充能。</div>
+                <div class="skill-card-desc">朝移動方向位移，擁有 2 次充能。</div>
                 <div class="skill-card-actions" id="actions-sprint"></div>
               </div>
               <div class="skill-card" data-skill="overdrive">
@@ -130,13 +147,13 @@
               <div class="skill-card" data-skill="tripleDash">
                 <div class="skill-card-icon">≡</div>
                 <div class="skill-card-name">三段衝刺</div>
-                <div class="skill-card-desc">以極短間隔朝指向方向連續衝刺三次。</div>
+                <div class="skill-card-desc">朝當下前進方向連續衝刺 3 次。</div>
                 <div class="skill-card-actions" id="actions-tripleDash"></div>
               </div>
               <div class="skill-card" data-skill="flashStep">
                 <div class="skill-card-icon">◎</div>
                 <div class="skill-card-name">閃現</div>
-                <div class="skill-card-desc">蓄力進入時緩，位移至落點並收割敵機，2 次充能。</div>
+                <div class="skill-card-desc">蓄力進入時緩，位移至指定落點，擁有 2 次充能。</div>
                 <div class="skill-card-actions" id="actions-flashStep"></div>
               </div>
             </div>
@@ -216,7 +233,7 @@
                     stroke="rgba(255,255,255,0.7)" stroke-width="2" />
                 </svg>
               </div>
-              <div class="guide-text"><b>能量點</b><br>全場散落的能量 (+2 質量)</div>
+              <div class="guide-text"><b>能量點</b><br>全場散落的能量 (+2)</div>
             </div>
             <div class="guide-item">
               <div class="icon-box">
@@ -226,16 +243,16 @@
                   <path class="prism-inner" d="M-6 0 L0 -9 L6 0 L0 9 Z" fill="rgba(0,255,255,0.5)" />
                 </svg>
               </div>
-              <div class="guide-text"><b>稜鏡</b><br>雙層旋轉的稜鏡，含較多能量 (+10 質量)</div>
+              <div class="guide-text"><b>稜鏡</b><br>雙層旋轉的稜鏡，含較多能量 (+10)</div>
             </div>
             <div class="guide-item">
               <div class="icon-box">
-                <svg viewBox="-30 -30 60 60" class="svg-legend rotate-anim">
-                  <circle cx="0" cy="0" r="18" fill="#FFF" />
-                  <circle cx="0" cy="0" r="25" fill="none" stroke="#FFF" stroke-width="2" stroke-dasharray="4 4" />
-                </svg>
+                <div class="iridescent-legend-box">
+                  <div class="legend-dots"></div>
+                  <div class="legend-core"></div>
+                </div>
               </div>
-              <div class="guide-text"><b>九九成稀罕物</b><br>全場僅出現一次 (+500 質量, +20% 速度)</div>
+              <div class="guide-text"><b>九九成稀罕物</b><br>每隔一段時間有機率生成白、金、虹彩品質的珍貴資源，提供大量能量與永久移速加成。（小地圖標示）</div>
             </div>
           </div>
 
@@ -245,7 +262,7 @@
               <div class="icon-box">
                 <div class="legend-eat pulse"></div>
               </div>
-              <div class="guide-text"><b>吞噬判定</b><br>大於目標 1.25 倍時，接近並包覆目標以吞噬。</div>
+              <div class="guide-text"><b>吞噬判定</b><br>大於目標 1.2 倍時，接近並包覆目標以吞噬。</div>
             </div>
             <div class="guide-item">
               <div class="icon-box">
@@ -262,11 +279,21 @@
       </div>
     </div>
 
-    <!-- Victory Screen -->
-    <div id="victory-screen">
-      <div class="victory-content">
-        <h1 class="victory-title">獲得勝利</h1>
-        <p id="victory-time-label"></p>
+    <div id="screen-effects-overlay"></div>
+    <!-- Orientation Warning -->
+    <div id="orientation-warning">
+      <div class="warning-icon"></div>
+      <p>請旋轉設備以獲得最佳遊戲體驗</p>
+    </div>
+
+    <!-- Unified Reward Screen -->
+    <div id="reward-screen">
+      <div class="reward-content">
+        <div class="confetti-container" id="reward-confetti"></div>
+        <div class="reward-halo" id="reward-halo"></div>
+        <h1 id="reward-title" class="reward-title">獲得勝利</h1>
+        <p id="reward-subtitle" class="reward-subtitle"></p>
+
         <div id="reward-panel" class="reward-panel">
           <div class="reward-row">
             <span class="reward-label">經驗值</span>
@@ -278,19 +305,27 @@
               <div id="reward-xp-bar-fill" class="xp-bar-fill" style="width: 0%"></div>
             </div>
           </div>
-          <div id="level-up-banner" class="level-up-banner" style="display:none">
+          <div id="reward-level-up-banner" class="level-up-banner" style="display:none">
             <span>LEVEL UP!</span>
           </div>
           <div class="reward-row">
             <span class="reward-label">金幣</span>
             <span id="reward-gold" class="reward-value gold-color">+0</span>
           </div>
+          <div id="reward-sp-row" class="reward-row" style="display:none">
+            <span class="reward-label">技能點</span>
+            <span id="reward-sp" class="reward-value sp-color">+0</span>
+          </div>
           <div class="reward-row">
             <span class="reward-label">淘汰數</span>
             <span id="reward-kills" class="reward-value">×0</span>
           </div>
         </div>
-        <button onclick="location.reload()" class="end-game-btn">重新開始</button>
+
+        <div class="end-game-actions">
+          <button onclick="restartGame()" class="end-game-btn">重新開始</button>
+          <button onclick="window.returnToMenu()" class="end-game-btn secondary">返回主畫面</button>
+        </div>
       </div>
     </div>
 
@@ -325,37 +360,19 @@
         </div>
       </div>
     </div>
-
-    <!-- Game Over -->
-    <div id="game-over">
-      <h1 class="game-over-title">遊戲結束</h1>
-      <p class="game-over-subtitle">已被淘汰</p>
-      <div id="gameover-reward-panel" class="reward-panel">
-        <div class="reward-row">
-          <span class="reward-label">經驗值</span>
-          <span id="go-reward-xp" class="reward-value xp-color">+0 XP</span>
-        </div>
-        <div id="go-reward-xp-bar-row" class="reward-xp-bar-row">
-          <span id="go-reward-level-label" class="level-badge">Lv.1</span>
-          <div class="xp-bar-container">
-            <div id="go-reward-xp-bar-fill" class="xp-bar-fill" style="width: 0%"></div>
-          </div>
-        </div>
-        <div id="go-level-up-banner" class="level-up-banner" style="display:none">
-          <span>LEVEL UP!</span>
-        </div>
-        <div class="reward-row">
-          <span class="reward-label">金幣</span>
-          <span id="go-reward-gold" class="reward-value gold-color">+0</span>
-        </div>
-        <div class="reward-row">
-          <span class="reward-label">淘汰數</span>
-          <span id="go-reward-kills" class="reward-value">×0</span>
-        </div>
-      </div>
-      <button class="end-game-btn" onclick="restartGame()">重新開始</button>
-    </div>
   </div>
+  <!-- Tutorial Overlay -->
+  <div id="tutorial-overlay" class="tutorial-overlay" style="display:none">
+    <div class="tutorial-box">
+      <div class="tutorial-content">
+        <p id="tutorial-text"></p>
+        <button id="tutorial-next" class="primary-btn">下一頁</button>
+      </div>
+      <div class="tutorial-arrow"></div>
+    </div>
+    <div id="tutorial-highlight" class="tutorial-highlight"></div>
+  </div>
+
   <script type="module" src="/src/main.js"></script>
 </body>
 

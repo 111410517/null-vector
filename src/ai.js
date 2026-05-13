@@ -61,9 +61,15 @@ function calculateIntention(npc, { entities, viruses, nodes, powerups }) {
   powerups.forEach(p => {
     const diff = Matter.Vector.sub(npc.body.position, p.body.position);
     const dist = Matter.Vector.magnitude(diff);
-    if (dist < 500) {
-      const weight = (500 - dist) / 500;
-      fleeForce = Matter.Vector.add(fleeForce, Matter.Vector.mult(Matter.Vector.normalise(diff), weight * 10));
+    // 縮小避讓範圍並增加側向力，讓 NPC 「繞過」而非「對峙」
+    const avoidRange = 350;
+    if (dist < avoidRange) {
+      const weight = Math.pow((avoidRange - dist) / avoidRange, 2);
+      const norm = Matter.Vector.normalise(diff);
+      // 側向力 (Tangent Force)
+      const tangent = { x: -norm.y, y: norm.x };
+      const avoidVec = Matter.Vector.add(norm, Matter.Vector.mult(tangent, 0.6));
+      fleeForce = Matter.Vector.add(fleeForce, Matter.Vector.mult(avoidVec, weight * 15));
     }
   });
 
@@ -116,6 +122,10 @@ function calculateIntention(npc, { entities, viruses, nodes, powerups }) {
     let bestNode = null;
     let maxScore = -1;
     nodes.forEach(node => {
+      // 禁止去吃出現在稀罕物威脅範圍內的點
+      const nearPowerup = powerups.some(p => Matter.Vector.magnitudeSquared(Matter.Vector.sub(node.body.position, p.body.position)) < 500 * 500);
+      if (nearPowerup) return;
+
       const diff = Matter.Vector.sub(node.body.position, npcPos);
       const dist = Matter.Vector.magnitude(diff);
       if (dist < 1000) {
@@ -166,7 +176,8 @@ function calculateIntention(npc, { entities, viruses, nodes, powerups }) {
 
 function applyNPCForce(npc, moveVec, multiplier) {
   const speedBonus = npc.isSmart ? 0.95 : 0.85;
-  const baseForce = CONFIG.baseForce * Math.pow(npc.mass / 30, 0.8) * speedBonus; 
+  const efficiencyMult = npc.efficiency || 1.0;
+  const baseForce = CONFIG.baseForce * Math.pow(npc.mass / 30, 0.8) * speedBonus * efficiencyMult; 
   const boostMult = npc.isBoosting ? 1.5 : 1.0; 
   Matter.Body.applyForce(npc.body, npc.body.position, Matter.Vector.mult(moveVec, baseForce * multiplier * boostMult));
 }

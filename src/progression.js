@@ -42,6 +42,7 @@ function createDefaultProgress() {
       owned: ['default'],
       equipped: 'default',
     },
+    tutorialDone: false,
   };
 }
 
@@ -136,6 +137,12 @@ export function grantXP(progress, xpGain) {
     } else {
       break;
     }
+  }
+
+  // 自動解鎖檢查：2 級時自動解鎖衝刺
+  if (progress.level >= 2 && !progress.skills.sprint.unlocked) {
+    progress.skills.sprint.unlocked = true;
+    progress.skills.sprint.level = 3;
   }
 
   return result;
@@ -240,11 +247,9 @@ export function equipSkill(progress, skillId) {
     return true;
   }
   const skill = progress.skills[skillId];
-  if (!skill) return false;
+  if (!skill || !skill.unlocked) return false;
 
-  // [TEMP FOR TESTING] Bypassing unlocked check
   progress.equippedSkill = skillId;
-  if (skill.level === 0) skill.level = 3; // Use max level for testing
   return true;
 }
 

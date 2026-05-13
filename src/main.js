@@ -7,7 +7,7 @@ import { updateAI } from './ai.js';
 import {
   loadProgress, saveProgress, getLevelProgress, grantXP, grantGold,
   calculateXPReward, calculateGoldReward, unlockSkill, equipSkill, upgradeSkill,
-  MAX_LEVEL
+  getXPForNextLevel, getXPForCurrentLevel, MAX_LEVEL
 } from './progression.js';
 import {
   SKILL_DEFS, createSkillState, getSkillDef, getSkillParam,
@@ -18,6 +18,7 @@ import {
 let app, engine, world;
 let nodeLayer, entityLayer, virusLayer, powerupLayer, vfxLayer, gameContainer;
 let player, entities = [], nodes = [], powerups = [];
+let miniVFX = [];
 let mousePos = { x: 0, y: 0 };
 let joystick = { active: false, vector: { x: 0, y: 0 } };
 let isGameOver = false;
@@ -43,19 +44,69 @@ const NPC_NAMES = [
   "8822", "4040", "11111", "霧島", "Ø_X99_!!!"
 ];
 
+// --- Loading Screen Logic ---
+function updateLoadingProgress(percent) {
+  const progressEl = document.querySelector('.loading-progress');
+  if (progressEl) {
+    progressEl.textContent = `${Math.round(percent)}%`;
+  }
+}
+
+function hideLoadingScreen() {
+  const screen = document.getElementById('loading-screen');
+  if (screen) {
+    screen.classList.add('fade-out');
+    // 確保動畫結束後移除 DOM 或設置為不顯示
+    setTimeout(() => {
+      screen.style.display = 'none';
+    }, 500);
+  }
+}
+
+function showLoadingScreen(callback) {
+  const screen = document.getElementById('loading-screen');
+  if (screen) {
+    screen.style.display = 'flex';
+    screen.classList.remove('fade-out');
+    updateLoadingProgress(0);
+    
+    // 模擬一個平滑的加載過程
+    let progress = 0;
+    const interval = setInterval(() => {
+      progress += Math.random() * 15;
+      if (progress >= 100) {
+        progress = 100;
+        updateLoadingProgress(progress);
+        clearInterval(interval);
+        setTimeout(() => {
+          if (callback) callback();
+          hideLoadingScreen();
+        }, 200);
+      } else {
+        updateLoadingProgress(progress);
+      }
+    }, 50);
+  } else if (callback) {
+    callback();
+  }
+}
+
 // --- Initialization ---
 async function init() {
+  updateLoadingProgress(10);
   app = new PIXI.Application();
   await app.init({
     width: window.innerWidth, height: window.innerHeight,
     backgroundColor: CONFIG.bgColor, antialias: true, resizeTo: window
   });
+  updateLoadingProgress(30);
   document.getElementById('app').prepend(app.canvas);
 
   engine = Matter.Engine.create();
   world = engine.world;
   world.gravity.y = 0;
 
+  updateLoadingProgress(50);
   createGrid();
   initMinimap();
   loadHistory();
@@ -73,6 +124,7 @@ async function init() {
   gameContainer.addChild(nodeLayer, powerupLayer, entityLayer, virusLayer, vfxLayer);
   app.stage.addChild(gameContainer);
 
+  updateLoadingProgress(70);
   // Create World Mask to clip everything outside boundaries
   const mask = new PIXI.Graphics();
   mask.rect(0, 0, CONFIG.worldSize, CONFIG.worldSize);
@@ -92,11 +144,16 @@ async function init() {
   for (let i = 0; i < CONFIG.virusCount; i++) spawnVirus();
 
   setupInputs();
-  document.getElementById('start-btn').onclick = startGame;
+  document.getElementById('start-btn').onclick = () => {
+    showLoadingScreen(startGame);
+  };
 
   app.ticker.add((delta) => {
     update(delta);
   });
+
+  updateLoadingProgress(100);
+  setTimeout(hideLoadingScreen, 500);
 
   setInterval(updateLeaderboard, 1000);
 }
@@ -113,9 +170,12 @@ function spawnNPC(index) {
   const ent = createEntity(Math.random() * CONFIG.worldSize, Math.random() * CONFIG.worldSize, CONFIG.initialMass, name, false);
   ent.isSmart = isSmart;
   ent.protectionTime = 180;
+  ent.spawnDelay = 1000;
+  ent.efficiency = Math.random() > 0.5 ? 0.67 : 1.0;
 }
 
 function startGame() {
+  isGameOver = false;
   // --- RESET WORLD FOR FRESH START ---
   // 1. Remove all entities, nodes, and viruses from stage and world
   entities.forEach(ent => {
@@ -247,6 +307,8 @@ function createEntity(x, y, mass, name, isPlayer) {
     dirIndicator: null,
     wobbleOffset: Math.random() * Math.PI * 2,
     smoothRotation: 0,
+    spawnDelay: 0,
+    efficiency: 1.0,
     boostFactor: 0,
     tailAngle: 0,
     isSmart: false,
@@ -587,8 +649,15 @@ function update(delta) {
     }
     // --------------------------------------------
 
-    // RESTORE NPC AI
-    if (!ent.isPlayer) updateAI(ent, delta, { entities, viruses, nodes, powerups, isGameOver });
+    // RESTORE NPC AI with spawnDelay
+    if (!ent.isPlayer) {
+      if (ent.spawnDelay > 0) {
+        ent.spawnDelay -= delta.elapsedMS;
+        Matter.Body.setVelocity(ent.body, { x: 0, y: 0 });
+      } else {
+        updateAI(ent, delta, { entities, viruses, nodes, powerups, isGameOver });
+      }
+    }
 
     // Protection Effect
     if (ent.protectionTime > 0) {
@@ -1002,6 +1071,33 @@ function triggerRarePickupVFX(x, y) {
   }
 }
 
+/**
+ * 觸發全螢幕特效 (如九九成稀罕物的金色光芒或分裂球的紅色故障)
+ * @param {string} type - 'legendary' | 'virus'
+ * @param {string} color - 覆蓋顏色 (可選)
+ */
+function triggerScreenEffect(type, customColor = null) {
+  const container = document.getElementById('screen-effects-overlay');
+  if (!container) return;
+  
+  const fx = document.createElement('div');
+  fx.className = type === 'legendary' ? 'fx-legendary-glow' : 'fx-virus-hit';
+  if (customColor) {
+    fx.style.boxShadow = `inset 0 0 120px ${customColor}, inset 0 0 250px ${customColor}44`;
+  }
+  container.appendChild(fx);
+  
+  // 新增規律的波普點 (Halftone Pattern)
+  const halftone = document.createElement('div');
+  halftone.className = 'fx-halftone';
+  
+  let finalColor = customColor || (type === 'legendary' ? '#FFD700' : '#FF0000');
+  halftone.style.color = finalColor;
+  fx.appendChild(halftone);
+  
+  setTimeout(() => fx.remove(), 3000);
+}
+
 function checkCollisions(ent) {
   if (ent.isDestroyed) return;
   
@@ -1026,7 +1122,7 @@ function checkCollisions(ent) {
       
       if (ent.isBoosting) addedMass *= 0.5; // Penalty for eating while boosting
       
-      ent.mass += addedMass;
+      ent.mass += addedMass * (ent.efficiency || 1.0);
       
       if (ent.isPlayer) {
         showFloatingText(node.body.position.x, node.body.position.y, `+${addedMass.toFixed(1)}`);
@@ -1049,10 +1145,15 @@ function checkCollisions(ent) {
     const dSq = Matter.Vector.magnitudeSquared(Matter.Vector.sub(p.body.position, pos));
     if (dSq < (radius + 20) * (radius + 20)) {
       if (p.type === 'rareItem' && ent.isPlayer) {
-        ent.mass += CONFIG.rareItemMass;
-        ent.speedMult += 0.2; // Add 20% speed
-        showFloatingText(p.body.position.x, p.body.position.y, "GODSPEED +20% | MASS +500", 0xFFFFFF);
-        screenShake = Math.max(screenShake, 60); // Increased and used Math.max
+        const tier = CONFIG.rareItemTiers[p.tierKey || 'white'];
+        ent.mass += tier.mass;
+        ent.speedMult += tier.speed; 
+        
+        // 觸發對應顏色的特效
+        const hexColor = '#' + (tier.color).toString(16).padStart(6, '0');
+        triggerScreenEffect('legendary', hexColor);
+        
+        screenShake = Math.max(screenShake, p.tierKey === 'iridescent' ? 100 : 60); 
         triggerRarePickupVFX(p.body.position.x, p.body.position.y);
         
         p.body.isDestroyed = true;
@@ -1088,7 +1189,10 @@ function checkCollisions(ent) {
           const massLoss = ent.mass * 0.3;
           ent.mass -= massLoss;
           releaseFragments(v.body.position.x, v.body.position.y, massLoss * 1.5, ent);
-          if (ent.isPlayer) screenShake = 20;
+          if (ent.isPlayer) {
+            screenShake = 30;
+            triggerScreenEffect('virus');
+          }
           
           // Destroy the virus after one split
           virusLayer.removeChild(v.graphics);
@@ -1109,8 +1213,8 @@ function checkCollisions(ent) {
 function shatterEntity(ent) {
   if (ent.isDestroyed || ent.protectionTime > 0) return;
   
-  // Basic shake for any death
-  screenShake = Math.max(screenShake, 30);
+  // Basic shake if player is involved
+  if (ent.isPlayer) screenShake = Math.max(screenShake, 30);
   
   ent.protectionTime = 180; // Lock immediately to prevent multi-death
 
@@ -1143,6 +1247,7 @@ function shatterEntity(ent) {
       Matter.Body.setPosition(ent.body, { x: rx, y: ry });
       Matter.Body.setVelocity(ent.body, { x: 0, y: 0 });
       ent.protectionTime = 120;
+      ent.spawnDelay = 1000;
       triggerRespawnVFX(rx, ry);
     }
     return;
@@ -1153,7 +1258,6 @@ function shatterEntity(ent) {
   if (ent.isPlayer) {
     isGameOver = true;
     showRewardScreen(false);
-    document.getElementById('game-over').style.display = 'flex';
     document.querySelector('.ui-overlay').style.display = 'none';
   }
   entityLayer.removeChild(ent.container);
@@ -1320,21 +1424,52 @@ function spawnVirus() {
 
 function spawnRareItem() {
   if (isGameOver || !isGameRunning) return;
-  const x = Math.random() * CONFIG.worldSize;
-  const y = Math.random() * CONFIG.worldSize;
+  
+  // 1. 決定是否生成 (每30秒有一定機率)
+  if (Math.random() > (CONFIG.rareItemProb || 0.7)) {
+    setTimeout(spawnRareItem, 30000);
+    return;
+  }
+
+  // 2. 決定等級 (虹彩、金色、白色)
+  const rng = Math.random();
+  let tierKey = 'white';
+  if (rng < CONFIG.rareItemTiers.iridescent.prob) tierKey = 'iridescent';
+  else if (rng < CONFIG.rareItemTiers.iridescent.prob + CONFIG.rareItemTiers.gold.prob) tierKey = 'gold';
+  
+  const tier = CONFIG.rareItemTiers[tierKey];
+  
+  let x, y;
+  const player = entities.find(e => e.isPlayer);
+  let attempts = 0;
+  
+  do {
+    x = Math.random() * CONFIG.worldSize;
+    y = Math.random() * CONFIG.worldSize;
+    attempts++;
+  } while (player && Matter.Vector.magnitude(Matter.Vector.sub({x, y}, player.body.position)) < 1200 && attempts < 10);
   
   const body = Matter.Bodies.circle(x, y, 40, { isSensor: true, label: 'rareItem' });
   const container = new PIXI.Container();
   container.x = x; container.y = y;
+  powerupLayer.addChild(container);
 
   const graphics = new PIXI.Graphics();
   container.addChild(graphics);
 
-  // ADD GLOW EFFECT
-  const glow = new PIXI.Graphics();
-  glow.circle(0, 0, 60);
-  glow.fill({ color: 0xFFFFFF, alpha: 0.2 });
-  container.addChildAt(glow, 0);
+  // 波普光點底座 (Halftone Base)
+  const halftoneBase = new PIXI.Graphics();
+  const dotColor = tierKey === 'iridescent' ? 0xFFCCFF : tier.color;
+  for (let r = 50; r <= 120; r += 20) {
+    const dots = Math.floor(r / 4);
+    const dotSize = Math.max(1, 5 - (r / 30));
+    for (let i = 0; i < dots; i++) {
+      const angle = (i / dots) * Math.PI * 2;
+      halftoneBase.circle(Math.cos(angle) * r, Math.sin(angle) * r, dotSize);
+    }
+  }
+  halftoneBase.fill({ color: dotColor, alpha: 0.3 });
+  container.addChildAt(halftoneBase, 0);
 
   const wobbleOffset = Math.random() * 10;
   let t = 0;
@@ -1342,11 +1477,19 @@ function spawnRareItem() {
     t += 0.05 * d.deltaTime;
     graphics.clear();
     
-    // Use the same Jelly wobble logic as players/NPCs
     const points = 32;
     const radius = 40;
     const time = Date.now() * 0.003 + wobbleOffset;
     
+    // 虹彩顏色變換
+    let currentColor = tier.color;
+    if (tierKey === 'iridescent') {
+      const hue = (Date.now() * 0.1) % 360;
+      // 模擬珍珠虹彩：在粉、藍、紫之間切換
+      const shift = Math.sin(Date.now() * 0.002) * 30;
+      currentColor = PIXI.Color.shared.setValue(`hsl(${300 + shift}, 70%, 85%)`).toNumber();
+    }
+
     graphics.beginPath();
     for (let i = 0; i <= points; i++) {
       const angle = (i / points) * Math.PI * 2;
@@ -1358,10 +1501,11 @@ function spawnRareItem() {
       else graphics.lineTo(px, py);
     }
     graphics.closePath();
-    graphics.fill({ color: 0xFFFFFF, alpha: 0.95 });
+    graphics.fill({ color: currentColor, alpha: 0.95 });
     graphics.stroke({ width: 6, color: 0xFFFFFF, alpha: 0.4, join: 'round' });
 
-    glow.scale.set(1 + Math.sin(t * 0.5) * 0.2);
+    halftoneBase.rotation += 0.01 * d.deltaTime;
+    halftoneBase.scale.set(1 + Math.sin(t * 0.5) * 0.1);
     container.scale.set(1 + Math.sin(t) * 0.05);
 
     if (body.isDestroyed) {
@@ -1371,8 +1515,19 @@ function spawnRareItem() {
   };
   app.ticker.add(update);
 
-  powerups.push({ body, container, type: 'rareItem' });
+  powerups.push({ body, container, type: 'rareItem', tierKey, tierColor: tier.color });
   Matter.World.add(world, body);
+  
+  // 小地圖波普擴散特效
+  miniVFX.push({
+    x, y, 
+    color: '#' + (tier.color).toString(16).padStart(6, '0'),
+    life: 1.0,
+    maxRadius: 60
+  });
+
+  // 排定下一次嘗試
+  setTimeout(spawnRareItem, 30000);
 }
 
 function releaseFragments(x, y, totalMass, triggerer) {
@@ -1549,14 +1704,54 @@ function renderMinimap() {
     miniCtx.arc(x, y, Math.max(2, r), 0, Math.PI * 2);
     miniCtx.fill();
   });
+
+  // Render Powerups on Minimap
+  powerups.forEach(p => {
+    const x = p.body.position.x * scale;
+    const y = p.body.position.y * scale;
+    const hexColor = '#' + (p.tierColor || 0xFFFFFF).toString(16).padStart(6, '0');
+    
+    miniCtx.fillStyle = hexColor;
+    miniCtx.shadowBlur = 8;
+    miniCtx.shadowColor = hexColor;
+    miniCtx.beginPath();
+    miniCtx.arc(x, y, 4, 0, Math.PI * 2);
+    miniCtx.fill();
+    miniCtx.shadowBlur = 0;
+  });
+
+  // Render Minimap VFX (Halftone expansion)
+  miniVFX = miniVFX.filter(vfx => vfx.life > 0);
+  miniVFX.forEach(vfx => {
+    vfx.life -= 0.015; // Slower fade for better visibility
+    const vx = vfx.x * scale;
+    const vy = vfx.y * scale;
+    const currentRadius = (1 - vfx.life) * vfx.maxRadius;
+    
+    miniCtx.fillStyle = vfx.color;
+    miniCtx.globalAlpha = vfx.life;
+    
+    // Draw halftone ring on minimap
+    const dots = 12;
+    for (let i = 0; i < dots; i++) {
+      const angle = (i / dots) * Math.PI * 2;
+      const dotX = vx + Math.cos(angle) * currentRadius;
+      const dotY = vy + Math.sin(angle) * currentRadius;
+      const dotSize = 2 + vfx.life * 2;
+      
+      miniCtx.beginPath();
+      miniCtx.arc(dotX, dotY, dotSize, 0, Math.PI * 2);
+      miniCtx.fill();
+    }
+    miniCtx.globalAlpha = 1.0;
+  });
 }
 
 function winGame() {
   isGameOver = true;
   isGameRunning = false;
   const timeStr = document.getElementById('timer-text').innerText;
-  document.getElementById('victory-screen').style.display = 'flex';
-  document.getElementById('victory-time-label').innerText = `總計時間：${timeStr}`;
+  // Reward screen now handles its own display within showRewardScreen
   document.querySelector('.ui-overlay').style.display = 'none';
   saveHistory(timeStr);
   showRewardScreen(true);
@@ -1574,46 +1769,71 @@ function loadHistory() {
   const list = document.getElementById('history-list');
   
   if (history.length === 0) {
-    list.innerHTML = '<div class="history-empty">尚無獲勝紀錄</div>';
+    list.innerHTML = `
+      <div class="history-empty">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="empty-icon"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+        <p>尚無獲勝紀錄</p>
+      </div>
+    `;
     return;
   }
 
-  const best = history[0]; // Sorted by time
+  const best = history[0]; 
   const totalWins = history.length;
 
+  const trophyIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"></path><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"></path><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"></path></svg>`;
+  const medalIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"></circle><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"></path></svg>`;
+  const starIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>`;
+  const checkIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+
   let html = `
-    <div class="history-summary">
-      <div class="summary-item">
-        <span class="summary-label">最佳成績</span>
-        <span class="summary-value">${best.time}</span>
+    <div class="history-summary-grid">
+      <div class="summary-card best-record">
+        <div class="summary-icon">${trophyIcon}</div>
+        <div class="summary-info">
+          <span class="summary-label">最佳成績</span>
+          <span class="summary-value">${best.time}</span>
+        </div>
       </div>
-      <div class="summary-item">
-        <span class="summary-label">總獲勝數</span>
-        <span class="summary-value">${totalWins}</span>
+      <div class="summary-card total-wins">
+        <div class="summary-icon">${medalIcon}</div>
+        <div class="summary-info">
+          <span class="summary-label">總獲勝數</span>
+          <span class="summary-value">${totalWins}</span>
+        </div>
       </div>
     </div>
-    <div class="history-list-header">近期戰績</div>
+    <div class="history-list-header">
+      <span>近期最佳成績</span>
+      <span class="header-line"></span>
+    </div>
   `;
 
+  html += '<div class="history-items-container">';
   html += history.map((h, i) => `
     <div class="history-item ${i === 0 ? 'is-best' : ''}">
       <div class="history-item-left">
-        <span class="history-icon">${i === 0 ? 'BEST' : 'WIN'}</span>
-        <span class="history-date">${h.date}</span>
+        <div class="history-icon-wrapper">${i === 0 ? starIcon : checkIcon}</div>
+        <div class="history-details">
+          <span class="history-status">${i === 0 ? 'BEST RECORD' : 'MISSION WIN'}</span>
+          <span class="history-date">${h.date}</span>
+        </div>
       </div>
-      <span class="history-time">${h.time}</span>
+      <div class="history-item-right">
+        <span class="history-time">${h.time}</span>
+      </div>
     </div>
   `).join('');
+  html += '</div>';
   
   list.innerHTML = html;
 }
 
 window.restartGame = () => {
-  document.getElementById('victory-screen').style.display = 'none';
-  document.getElementById('game-over').style.display = 'none';
+  document.getElementById('reward-screen').style.display = 'none';
   document.getElementById('pause-menu').style.display = 'none';
   isPaused = false;
-  startGame();
+  showLoadingScreen(startGame);
 };
 
 window.returnToMenu = () => {
@@ -1621,8 +1841,7 @@ window.returnToMenu = () => {
   isGameOver = false;
   isPaused = false;
   document.getElementById('pause-menu').style.display = 'none';
-  document.getElementById('victory-screen').style.display = 'none';
-  document.getElementById('game-over').style.display = 'none';
+  document.getElementById('reward-screen').style.display = 'none';
   document.getElementById('start-menu').style.display = 'flex';
   document.querySelector('.ui-overlay').style.display = 'none';
   
@@ -1716,13 +1935,6 @@ function initProgressionUI() {
     });
   });
 
-  // Unequip skill button
-  document.getElementById('unequip-skill-btn').addEventListener('click', () => {
-    progress.equippedSkill = null;
-    saveProgress(progress);
-    renderSkillsPage();
-  });
-
   refreshProgressDisplay();
   renderSkillsPage();
 }
@@ -1760,19 +1972,13 @@ function renderSkillsPage() {
 
   // Equipped banner
   const equipped = progress.equippedSkill;
-  const unequipBtn = document.getElementById('unequip-skill-btn');
   if (equipped && SKILL_DEFS[equipped]) {
     const def = SKILL_DEFS[equipped];
-    const lvl = progress.skills[equipped].level;
     document.getElementById('equipped-skill-icon').textContent = def.icon;
     document.getElementById('equipped-skill-name').textContent = def.name;
-    document.getElementById('equipped-skill-level').textContent = `Lv.${lvl}/3`;
-    unequipBtn.style.display = 'inline-block';
   } else {
     document.getElementById('equipped-skill-icon').textContent = '—';
     document.getElementById('equipped-skill-name').textContent = '預設加速';
-    document.getElementById('equipped-skill-level').textContent = '';
-    unequipBtn.style.display = 'none';
   }
 
   // Render each skill card
@@ -1786,23 +1992,12 @@ function renderSkillsPage() {
 
     card.classList.remove('locked', 'equipped');
 
-    // Auto-unlock Sprint at Level 2
-    if (id === 'sprint' && progress.level >= 2 && !skill.unlocked) {
-      skill.unlocked = true;
-      skill.level = 3;
-      saveProgress(progress);
-    }
-
-    // [TEMP FOR TESTING] Bypass unlocked visual check
-    const isActuallyUnlocked = skill.unlocked;
-    const forceEquippable = true; // Set to true for manual testing
-
-    if (!isActuallyUnlocked && !forceEquippable) {
+    if (!skill.unlocked) {
       card.classList.add('locked');
       const cost = unlockCosts[id];
       const lvlReq = levelReqs[id];
       
-      let btnLabel = `解鎖 ${cost}`;
+      let btnLabel = `${cost} 技能點`;
       if (id === 'sprint' && progress.level < 2) {
         btnLabel = 'Lv.2 解鎖';
       }
@@ -1813,7 +2008,8 @@ function renderSkillsPage() {
       let html = '';
       if (equipped === id) {
         card.classList.add('equipped');
-        html += `<button class="btn-equipped-label" disabled>裝備中</button>`;
+        // 改為「卸下」按鈕
+        html += `<button class="btn-unequip" data-action="unequip" data-skill="${id}">卸下</button>`;
       } else {
         html += `<button class="btn-equip" data-action="equip" data-skill="${id}">裝備</button>`;
       }
@@ -1830,6 +2026,12 @@ function renderSkillsPage() {
         unlockSkill(progress, skillId);
       } else if (action === 'equip') {
         equipSkill(progress, skillId);
+        if (tutorialStep === 3 && skillId === 'sprint') {
+          progress.tutorialDone = true;
+          showTutorialStep(0); // Hide
+        }
+      } else if (action === 'unequip') {
+        progress.equippedSkill = null;
       } else if (action === 'upgrade') {
         upgradeSkill(progress, skillId);
       }
@@ -2080,8 +2282,6 @@ async function executeFlashStep() {
   });
 
   // VFX
-  // Basic dash shake if nothing killed
-  if (!killedSomething) screenShake = Math.max(screenShake, 20); 
   
   cleanupFlashStepVisuals();
   startCooldown(skillState);
@@ -2263,32 +2463,266 @@ function updateCooldownUI() {
 /**
  * 顯示結算獎勵畫面（勝利或敗場）
  */
-function showRewardScreen(isVictory) {
+async function showRewardScreen(isVictory) {
   const xpReward = calculateXPReward(isVictory, elapsedTime, killCount);
   const goldReward = calculateGoldReward(isVictory, killCount);
+  
+  // Capture initial state before granting
+  const initialLevel = progress.level;
+  const initialXP = progress.xp;
+  const initialTotalXP = getXPForNextLevel(initialLevel);
+  const initialStartXP = getXPForCurrentLevel(initialLevel);
+  const startPct = initialXP >= initialTotalXP ? 1 : (initialXP - initialStartXP) / (initialTotalXP - initialStartXP);
 
   const result = grantXP(progress, xpReward);
   grantGold(progress, goldReward);
   saveProgress(progress);
 
-  // Use correct element IDs based on screen
-  const prefix = isVictory ? '' : 'go-';
-  document.getElementById(`${prefix}reward-xp`).textContent = `+${xpReward} XP`;
-  document.getElementById(`${prefix}reward-gold`).textContent = `+${goldReward}`;
-  document.getElementById(`${prefix}reward-kills`).textContent = `×${killCount}`;
-  document.getElementById(`${prefix}reward-level-label`).textContent = `Lv.${progress.level}`;
+  const screen = document.getElementById('reward-screen');
+  const title = document.getElementById('reward-title');
+  const subtitle = document.getElementById('reward-subtitle');
+  const halo = document.getElementById('reward-halo');
 
-  const pct = getLevelProgress(progress);
-  document.getElementById(`${prefix}reward-xp-bar-fill`).style.width = `${Math.round(pct * 100)}%`;
-
-  // Show level up banner
-  const banner = document.getElementById(`${prefix}level-up-banner`);
-  if (result.levelsGained > 0) {
-    banner.style.display = 'block';
+  // Set Title and Subtitle based on victory/defeat
+  if (isVictory) {
+    title.textContent = '獲得勝利';
+    title.style.background = 'linear-gradient(135deg, #FFFFFF 0%, #00FFBB 100%)';
+    title.style.webkitBackgroundClip = 'text';
+    title.style.webkitTextFillColor = 'transparent';
+    title.style.filter = 'drop-shadow(0 0 30px rgba(0, 255, 187, 0.4))';
+    
+    const mins = Math.floor(elapsedTime / 60000).toString().padStart(2, '0');
+    const secs = Math.floor((elapsedTime % 60000) / 1000).toString().padStart(2, '0');
+    subtitle.textContent = `達成時間 ${mins}:${secs}`;
+    halo.style.display = 'block';
   } else {
-    banner.style.display = 'none';
+    title.textContent = '遊戲結束';
+    title.style.background = 'linear-gradient(135deg, #FFFFFF 0%, #FF4444 100%)';
+    title.style.webkitBackgroundClip = 'text';
+    title.style.webkitTextFillColor = 'transparent';
+    title.style.filter = 'drop-shadow(0 0 30px rgba(255, 68, 68, 0.4))';
+    
+    subtitle.textContent = '已被淘汰';
+    halo.style.display = 'none';
+  }
+
+  screen.style.display = 'flex';
+
+  // Helper for counting up
+  const animateNumber = (el, start, end, duration, fmt = v => v) => {
+    return new Promise(resolve => {
+      let startTime = null;
+      const step = (now) => {
+        if (!startTime) startTime = now;
+        const p = Math.min(1, (now - startTime) / duration);
+        el.textContent = fmt(Math.floor(start + (end - start) * p));
+        if (p < 1) requestAnimationFrame(step);
+        else resolve();
+      };
+      requestAnimationFrame(step);
+    });
+  };
+
+  // Reset UI for animation
+  const barFill = document.getElementById(`reward-xp-bar-fill`);
+  const levelLabel = document.getElementById(`reward-level-label`);
+  const xpValue = document.getElementById(`reward-xp`);
+  const goldValue = document.getElementById(`reward-gold`);
+  const killsValue = document.getElementById(`reward-kills`);
+  const banner = document.getElementById(`reward-level-up-banner`);
+  const spRow = document.getElementById(`reward-sp-row`);
+  const spValue = document.getElementById(`reward-sp`);
+
+  barFill.style.transition = 'none';
+  barFill.style.width = `${Math.max(0, Math.min(100, startPct * 100))}%`;
+  levelLabel.textContent = `Lv.${initialLevel}`;
+  xpValue.textContent = `+0 XP`;
+  goldValue.textContent = `+0`;
+  killsValue.textContent = `×0`;
+  banner.style.display = 'none';
+  banner.classList.remove('animate');
+  spRow.style.display = 'none';
+
+  await new Promise(r => setTimeout(r, 800)); // Initial pause for screen transition
+
+  // 1. XP Number
+  await animateNumber(xpValue, 0, xpReward, 800, v => `+${v} XP`);
+  await new Promise(r => setTimeout(r, 200));
+
+  // 2. XP Bar & Levels
+  if (result.levelsGained > 0) {
+    // Fill to 100%
+    barFill.style.transition = 'width 0.6s ease-in';
+    barFill.style.width = '100%';
+    await new Promise(r => setTimeout(r, 650));
+    
+    // Level Up Pop
+    banner.style.display = 'block';
+    banner.classList.add('animate');
+    levelLabel.textContent = `Lv.${progress.level}`;
+    levelLabel.style.transition = 'transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+    levelLabel.style.transform = 'scale(1.5)';
+    setTimeout(() => levelLabel.style.transform = 'scale(1)', 300);
+    await new Promise(r => setTimeout(r, 400));
+
+    // Reset bar and fill to final pct
+    barFill.style.transition = 'none';
+    barFill.style.width = '0%';
+    barFill.offsetHeight; // trigger reflow
+    barFill.style.transition = 'width 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)';
+    barFill.style.width = `${getLevelProgress(progress) * 100}%`;
+    await new Promise(r => setTimeout(r, 800));
+  } else {
+    barFill.style.transition = 'width 1s cubic-bezier(0.34, 1.56, 0.64, 1)';
+    barFill.style.width = `${getLevelProgress(progress) * 100}%`;
+    await new Promise(r => setTimeout(r, 1000));
+  }
+
+  // 3. Skill Points (if gained)
+  if (result.skillPointsGained > 0) {
+    spRow.style.display = 'flex';
+    await animateNumber(spValue, 0, result.skillPointsGained, 500, v => `+${v}`);
+    await new Promise(r => setTimeout(r, 300));
+  }
+
+  // 4. Gold
+  await animateNumber(goldValue, 0, goldReward, 800, v => `+${v}`);
+  await new Promise(r => setTimeout(r, 200));
+  
+  // 5. Kills
+  killsValue.textContent = `×${killCount}`;
+  killsValue.classList.add('count-up');
+
+  // 6. Confetti if victory
+  if (isVictory) triggerConfetti();
+
+  // 7. Tutorial Trigger (只有在剛升到 2 級或以上且未完成教學時觸發)
+  if (progress.level >= 2 && !progress.tutorialDone) {
+    console.log('[Tutorial] Triggering step 1. Level:', progress.level);
+    setTimeout(() => showTutorialStep(1), 2500);
   }
 }
+
+function triggerConfetti() {
+  const container = document.getElementById('reward-confetti');
+  if (!container) return;
+  container.innerHTML = '';
+  const colors = ['#00FFBB', '#FFFFFF', '#00FFFF', '#FFD700', '#FF00FF'];
+  
+  for (let i = 0; i < 80; i++) {
+    const p = document.createElement('div');
+    p.style.position = 'absolute';
+    p.style.width = `${Math.random() * 8 + 4}px`;
+    p.style.height = `${Math.random() * 8 + 4}px`;
+    p.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+    p.style.left = `${Math.random() * 100}%`;
+    p.style.top = `-20px`;
+    p.style.borderRadius = '2px';
+    p.style.opacity = Math.random();
+    
+    container.appendChild(p);
+    
+    const duration = Math.random() * 2 + 1.5;
+    const delay = Math.random() * 1.5;
+    p.animate([
+      { transform: `translate(0, 0) rotate(0deg)`, opacity: 1 },
+      { transform: `translate(${(Math.random() - 0.5) * 300}px, ${window.innerHeight + 20}px) rotate(${Math.random() * 1000}deg)`, opacity: 0 }
+    ], {
+      duration: duration * 1000,
+      delay: delay * 1000,
+      easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+      fill: 'forwards'
+    });
+  }
+}
+
+// ==========================================================
+// TUTORIAL SYSTEM
+// ==========================================================
+
+let tutorialStep = 0;
+
+function showTutorialStep(step) {
+  const overlay = document.getElementById('tutorial-overlay');
+  const text = document.getElementById('tutorial-text');
+  const highlight = document.getElementById('tutorial-highlight');
+  const box = document.querySelector('.tutorial-box');
+  const nextBtn = document.getElementById('tutorial-next');
+  
+  if (step === 0) {
+    overlay.style.display = 'none';
+    return;
+  }
+
+  overlay.style.display = 'flex';
+  tutorialStep = step;
+
+  const steps = {
+    1: { 
+      text: "恭喜升到 2 級！你獲得了第一個技能點。點擊「返回主畫面」來查看如何使用它。",
+      target: () => document.querySelector('.end-game-btn.secondary'),
+      pos: 'top'
+    },
+    2: {
+      text: "點擊「技能」分頁來進入技能管理頁面。",
+      target: () => document.querySelector('.tab-btn[data-tab="skills"]'),
+      pos: 'bottom'
+    },
+    3: {
+      text: "每升一級可以獲得 1 個技能點。目前你已經自動解鎖了「衝刺」技能，點擊「裝備」來啟用它！",
+      target: () => document.querySelector('.skill-card[data-skill="sprint"] .btn-equip'),
+      pos: 'top'
+    }
+  };
+
+  const s = steps[step];
+  text.textContent = s.text;
+  nextBtn.style.display = 'none'; // 通常靠點擊目標來觸發下一步，但這裡為了保險可以加一個
+  
+  const targetEl = s.target();
+  if (targetEl) {
+    const rect = targetEl.getBoundingClientRect();
+    highlight.style.display = 'block';
+    highlight.style.top = `${rect.top - 5}px`;
+    highlight.style.left = `${rect.left - 5}px`;
+    highlight.style.width = `${rect.width + 10}px`;
+    highlight.style.height = `${rect.height + 10}px`;
+    
+    // Position box
+    if (s.pos === 'bottom') {
+      box.style.top = `${rect.bottom + 20}px`;
+      box.style.bottom = 'auto';
+    } else {
+      box.style.bottom = `${window.innerHeight - rect.top + 20}px`;
+      box.style.top = 'auto';
+    }
+    box.style.left = `${Math.max(20, Math.min(window.innerWidth - 300, rect.left + rect.width/2 - 140))}px`;
+    box.style.transform = 'none';
+  } else {
+    highlight.style.display = 'none';
+    box.style.top = '50%';
+    box.style.left = '50%';
+    box.style.transform = 'translate(-50%, -50%)';
+  }
+}
+
+// Hook into actions
+const originalReturnToMenu = window.returnToMenu;
+window.returnToMenu = () => {
+  originalReturnToMenu();
+  if (progress.level >= 2 && !progress.tutorialDone) {
+    setTimeout(() => showTutorialStep(2), 500);
+  }
+};
+
+// Hook into Tab switching for tutorial
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (tutorialStep === 2 && btn.dataset.tab === 'skills') {
+      setTimeout(() => showTutorialStep(3), 300);
+    }
+  });
+});
 
 init();
 
