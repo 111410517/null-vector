@@ -855,7 +855,7 @@ function update(delta) {
       }
 
       // SOFT BOUNDARIES & WALL DAMPING
-      const springK = 0.01;
+      const springK = 0.05;
       const wallMargin = radius * 0.3; 
       const damping = 0.85;
 
