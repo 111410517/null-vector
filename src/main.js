@@ -12,7 +12,8 @@ import {
 } from './progression.js';
 import {
   SKILL_DEFS, createSkillState, getSkillDef, getSkillParam,
-  canUseSkill, updateSkillCooldown, startCooldown, getCooldownProgress
+  canUseSkill, updateSkillCooldown, startCooldown, getCooldownProgress,
+  addSkillEnergy
 } from './skills.js';
 import {
   initTutorial, showTutorialStep, isTutorialActive,
@@ -923,6 +924,8 @@ function update(delta) {
                 killCount++;
                 updateCombo();
                 showMassFeed(gainedMass, 'green');
+                // 補充技能能量
+                if (skillState) addSkillEnergy(skillState, gainedMass);
               }
               shatterEntity(other);
             }
@@ -1397,6 +1400,8 @@ function checkCollisions(ent) {
       if (ent.isPlayer) {
         showMassFeed(addedMass * finalGrowthEff, 'green');
         triggerNodePickupVFX(nPos.x, nPos.y, node.isSpecial ? 0x00FFFF : 0xFFFFFF);
+        // 補充技能能量
+        if (skillState) addSkillEnergy(skillState, addedMass * finalGrowthEff);
       } else {
         triggerNodePickupVFX(nPos.x, nPos.y, node.isSpecial ? 0x00FFFF : 0xFFFFFF);
       }
@@ -1421,7 +1426,10 @@ function checkCollisions(ent) {
         
         // 觸發對應顏色的特效
         const hexColor = '#' + (tier.color).toString(16).padStart(6, '0');
-        triggerScreenEffect('legendary', hexColor);
+        if (tier.label === 'IRIDESCENT') triggerScreenEffect('legendary');
+        
+        // 補充技能能量
+        if (skillState) addSkillEnergy(skillState, tier.mass);
         
         showMassFeed(tier.mass, 'rainbow');
         screenShake = Math.max(screenShake, p.tierKey === 'iridescent' ? 100 : 60); 
@@ -2778,6 +2786,9 @@ async function executeFlashStep() {
       
       updateCombo();
       showMassFeed(gainedMass, 'green');
+      
+      // 補充技能能量
+      if (skillState) addSkillEnergy(skillState, gainedMass);
       
       // TRIGGER SHAKE WITH SLIGHT DELAY (to avoid being cancelled by high-speed movement interpolation)
       setTimeout(() => {

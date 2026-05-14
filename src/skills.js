@@ -35,12 +35,10 @@ export const SKILL_DEFS = {
     description: '不消耗質量，加速效果從 1% 漸增至 150%',
     type: 'toggle',
     massCost: [0, 0, 0],
-    cooldown: [1200, 1100, 1000],   // 再次減半
-    minMass: 0,
-    // 加速漸增時間（ms）、持續時間（ms）
     rampUpDuration: 2000,           // 增加至 2s，使加速過程更平滑
     sustainDuration: [1500, 1500, 1500], // 縮短至 1.5s，平衡高極速表現
     maxSpeedMult: 4.5,
+    energyRequired: [1000, 900, 800], // 充能所需能量 (與質量掛鉤)
   },
 
   tripleDash: {
@@ -179,6 +177,9 @@ export function canUseSkill(skillState, player) {
  * @param {number} deltaMs - 經過的毫秒數
  */
 export function updateSkillCooldown(skillState, deltaMs) {
+  // 超級加速使用能量制，不由時間冷卻
+  if (skillState.skillId === 'overdrive') return;
+
   if (skillState.charges < skillState.maxCharges) {
     if (skillState.cooldownRemaining > 0) {
       skillState.cooldownRemaining = Math.max(0, skillState.cooldownRemaining - deltaMs);
@@ -212,12 +213,34 @@ export function startCooldown(skillState, multiplier = 1.0) {
 
   // 如果原本是滿的，開始計時第一個充能的恢復
   if (skillState.charges === skillState.maxCharges) {
-    const baseCD = getSkillParam(def, 'cooldown', skillState.level);
-    skillState.cooldownRemaining = baseCD * multiplier;
+    if (def.energyRequired) {
+      // 能量制技能：設定初始所需能量
+      skillState.cooldownRemaining = getSkillParam(def, 'energyRequired', skillState.level);
+    } else {
+      const baseCD = getSkillParam(def, 'cooldown', skillState.level);
+      skillState.cooldownRemaining = baseCD * multiplier;
+    }
   }
   
   skillState.charges = Math.max(0, skillState.charges - 1);
   skillState.isActive = false;
+}
+
+/**
+ * 為能量制技能補充能量
+ * @param {object} skillState - 運行時狀態
+ * @param {number} amount - 補充量
+ */
+export function addSkillEnergy(skillState, amount) {
+  if (skillState.skillId !== 'overdrive' || skillState.charges >= skillState.maxCharges) return;
+  
+  // 這裡的 cooldownRemaining 代表「剩餘所需能量」
+  if (skillState.cooldownRemaining > 0) {
+    skillState.cooldownRemaining = Math.max(0, skillState.cooldownRemaining - amount);
+    if (skillState.cooldownRemaining <= 0) {
+      skillState.charges = skillState.maxCharges;
+    }
+  }
 }
 
 /**
