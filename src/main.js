@@ -863,7 +863,7 @@ function update(delta) {
       // RESTORE NPC AI with spawnDelay
       if (!ent.isPlayer) {
         if (ent.spawnDelay > 0) {
-          ent.spawnDelay -= delta.elapsedMS;
+          ent.spawnDelay -= scaledDeltaMS;
           Matter.Body.setVelocity(ent.body, { x: 0, y: 0 });
         } else {
           // Use Demo AI if it's a menu-specific NPC
@@ -877,7 +877,7 @@ function update(delta) {
 
       // Protection Effect
       if (ent.protectionTime > 0) {
-        ent.protectionTime -= delta.deltaTime;
+        ent.protectionTime -= (scaledDeltaMS / 16.666);
         ent.container.alpha = 0.4 + Math.sin(Date.now() * 0.01) * 0.4;
       } else {
         ent.container.alpha = 1.0;
@@ -902,8 +902,8 @@ function update(delta) {
 
         if (isDefaultBoost || isOverdrive || isTripleDash || isFlashStep || isSprint) {
           ent.isBoosting = true;
-          if (ent.sprintVisualTimer > 0) ent.sprintVisualTimer -= delta.elapsedMS;
-          if (ent.dashVisualTimer > 0) ent.dashVisualTimer -= delta.elapsedMS;
+          if (ent.sprintVisualTimer > 0) ent.sprintVisualTimer -= scaledDeltaMS;
+          if (ent.dashVisualTimer > 0) ent.dashVisualTimer -= scaledDeltaMS;
         } else {
           ent.isBoosting = false;
         }
@@ -914,7 +914,7 @@ function update(delta) {
 
       const isSkillBoost = ent.isPlayer && skillState && !skillState.isDefaultBoost && skillState.isActive;
       if (ent.isBoosting && ent.mass > 20 && !isSkillBoost) {
-        ent.mass -= 0.01 * delta.deltaTime;
+        ent.mass -= 0.01 * (scaledDeltaMS / 16.666);
       }
 
       // TAIL ANGLE LERP (Inertia)
