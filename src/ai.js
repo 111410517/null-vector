@@ -102,15 +102,17 @@ function calculateIntention(npc, { entities, viruses, nodes, powerups }) {
     const dist = Matter.Vector.magnitude(diff);
     if (dist < 600) {
       const norm = Matter.Vector.normalise(diff);
+      // 只有大球 (質量 >= 500) 需要避讓分裂球，因為碰觸會碎裂
       if (npc.mass >= CONFIG.virusMinMass) {
         if (nearestThreatDist > 1200) {
+          // 安全時維持現狀
           shatterForce = Matter.Vector.add(shatterForce, Matter.Vector.mult(Matter.Vector.neg(norm), 3));
         } else {
-          fleeForce = Matter.Vector.add(fleeForce, Matter.Vector.mult(norm, 6));
+          // 有威脅時強制避讓，防止被推入分裂球
+          fleeForce = Matter.Vector.add(fleeForce, Matter.Vector.mult(norm, 8));
         }
-      } else {
-        fleeForce = Matter.Vector.add(fleeForce, Matter.Vector.mult(norm, 8));
       }
+      // 小球不再避讓，因為碰觸無害
     }
   });
 
