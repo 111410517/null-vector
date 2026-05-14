@@ -1161,7 +1161,7 @@ function update(delta) {
       // 更新計時條
       const bar = document.querySelector('.combo-timer-bar');
       if (bar) {
-        const pct = Math.max(0, (COMBO_WINDOW - elapsed) / COMBO_WINDOW) * 100;
+        const pct = Math.max(0, comboTimer / COMBO_WINDOW) * 100;
         bar.style.width = `${pct}%`;
       }
 
@@ -1177,7 +1177,7 @@ function update(delta) {
       // 倒數警告閃爍 (最後 1.5 秒)
       const text = document.getElementById('combo-text-container');
       if (text) {
-        if (COMBO_WINDOW - elapsed < 1500) {
+        if (comboTimer < 1500) {
           text.classList.add('warning');
         } else {
           text.classList.remove('warning');
