@@ -2961,6 +2961,7 @@ function updateCooldownUI() {
   if (!skillState || skillState.isDefaultBoost) return;
   const skillBtn = document.getElementById('skill-btn');
   let overlay = skillBtn.querySelector('.cooldown-overlay');
+  let cdText = skillBtn.querySelector('.cooldown-text');
   let chargeBadge = skillBtn.querySelector('.charge-badge');
   const cdProgress = getCooldownProgress(skillState);
 
@@ -2976,8 +2977,6 @@ function updateCooldownUI() {
     chargeBadge.remove();
   }
 
-    let overlay = skillBtn.querySelector('.cooldown-overlay');
-    let cdText = skillBtn.querySelector('.cooldown-text');
     
     if (cdProgress > 0) {
       if (!overlay) {
