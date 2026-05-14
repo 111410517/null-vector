@@ -109,8 +109,13 @@ async function init() {
   updateLoadingProgress(10);
   app = new PIXI.Application();
   await app.init({
-    width: window.innerWidth, height: window.innerHeight,
-    backgroundColor: CONFIG.bgColor, antialias: true, resizeTo: window
+    width: window.innerWidth, 
+    height: window.innerHeight,
+    backgroundColor: CONFIG.bgColor, 
+    antialias: true, 
+    resizeTo: window,
+    resolution: window.devicePixelRatio || 1, // 解決手機端模糊問題
+    autoDensity: true // 自動調整 Canvas 密度
   });
   updateLoadingProgress(30);
   document.getElementById('app').prepend(app.canvas);
@@ -255,10 +260,13 @@ function spawnNPC(index, customX, customY, customMass, isDemoScripted, avoidViru
 }
 
 function startGame() {
-  isGameOver = false;
-  isPaused = false;
   app.ticker.speed = 1; // 確保速度恢復
   tutorialPauseStart = 0;
+
+  // 手機端預設隱藏側邊面板
+  if (isTouchDevice) {
+    document.querySelector('.secondary-panel').classList.remove('active');
+  }
   clearWorld();
   killCount = 0;
   timeScale = 1.0;
@@ -1421,6 +1429,18 @@ function setupInputs() {
   window.addEventListener('touchend', () => { joystick.active = false; joyThumb.style.transform = 'translate(-50%, -50%)'; joystick.vector = { x: 0, y: 0 }; });
 
   window.addEventListener('contextmenu', e => e.preventDefault());
+
+  // 手機端側邊欄互動
+  const openBtn = document.getElementById('open-skills-btn');
+  const closeBtn = document.getElementById('close-side-panel');
+  const sidePanel = document.querySelector('.secondary-panel');
+  
+  if (openBtn && sidePanel) {
+    openBtn.addEventListener('click', () => sidePanel.classList.add('active'));
+  }
+  if (closeBtn && sidePanel) {
+    closeBtn.addEventListener('click', () => sidePanel.classList.remove('active'));
+  }
 }
 
 let viruses = [];
@@ -1721,13 +1741,15 @@ function startRespawnSequence(callback) {
 
 function updateLeaderboard() {
   const sortedAll = [...entities].sort((a, b) => b.mass - a.mass);
-  const top5 = sortedAll.slice(0, 5);
+  // 手機端僅顯示前 3 名，避免遮擋
+  const displayCount = isTouchDevice ? 3 : 5;
+  const topList = sortedAll.slice(0, displayCount);
   const list = document.getElementById('leaderboard-list');
   const aliveCount = document.getElementById('alive-count');
   if (aliveCount) aliveCount.innerText = entities.length;
   if (!list) return;
 
-  let html = top5.map((ent, i) => `
+  let html = topList.map((ent, i) => `
     <div class="leaderboard-item ${ent.isPlayer ? 'me' : ''} ${i === 0 ? 'is-leader' : ''}">
       <span class="rank">#${i + 1}</span>
       <span class="name">${ent.name}</span>
@@ -1737,7 +1759,7 @@ function updateLeaderboard() {
 
   if (isGameRunning) {
     const playerRank = sortedAll.findIndex(e => e.isPlayer) + 1;
-    if (playerRank > 5) {
+    if (playerRank > displayCount) {
       html += `
         <div class="leaderboard-separator">...</div>
         <div class="leaderboard-item me">
