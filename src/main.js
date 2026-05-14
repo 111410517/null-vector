@@ -2984,20 +2984,29 @@ function updateCooldownUI() {
       skillBtn.appendChild(overlay);
     }
     const def = SKILL_DEFS[skillState.skillId];
+    const nameEl = skillBtn.querySelector('.skill-name');
+    const iconEl = skillBtn.querySelector('.skill-icon');
+
     // 計算能量/進度百分比 (0-100)
-    // 對於能量制技能，100% 代表已滿；對於時間制，100% 代表冷卻中
     let pct = 0;
     if (def && def.energyRequired) {
       const total = getSkillParam(def, 'energyRequired', skillState.level);
       const current = total - skillState.cooldownRemaining;
       pct = Math.floor((current / total) * 100);
-      overlay.querySelector('.cooldown-text').textContent = skillState.charges > 0 ? '' : `${pct}%`;
-      // 能量制：填充代表能量，所以直接用 pct
+      
+      const isReady = skillState.charges > 0;
+      overlay.querySelector('.cooldown-text').textContent = isReady ? '' : `${pct}%`;
+      if (nameEl) nameEl.style.display = isReady ? 'block' : 'none';
+      if (iconEl) iconEl.style.display = isReady ? 'block' : 'none';
+      
       overlay.style.clipPath = `inset(${100 - pct}% 0 0 0)`;
     } else {
       const secs = Math.ceil(skillState.cooldownRemaining / 1000);
-      overlay.querySelector('.cooldown-text').textContent = skillState.charges > 0 ? '' : `${secs}s`;
-      // 時間制：填充代表冷卻進度
+      const isReady = skillState.charges > 0;
+      overlay.querySelector('.cooldown-text').textContent = isReady ? '' : `${secs}s`;
+      if (nameEl) nameEl.style.display = isReady ? 'block' : 'none';
+      if (iconEl) iconEl.style.display = isReady ? 'block' : 'none';
+      
       overlay.style.clipPath = `inset(${100 - (cdProgress * 100)}% 0 0 0)`;
     }
     
@@ -3009,6 +3018,12 @@ function updateCooldownUI() {
   } else {
     // 當冷卻完全結束 (cdProgress == 0)
     const def = SKILL_DEFS[skillState.skillId];
+    const nameEl = skillBtn.querySelector('.skill-name');
+    const iconEl = skillBtn.querySelector('.skill-icon');
+    
+    if (nameEl) nameEl.style.display = 'block';
+    if (iconEl) iconEl.style.display = 'block';
+
     if (def && def.energyRequired) {
       // 能量制技能滿了以後，應保持全白填充
       if (!overlay) {
