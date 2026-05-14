@@ -924,8 +924,8 @@ function update(delta) {
                 killCount++;
                 updateCombo();
                 showMassFeed(gainedMass, 'green');
-                // 補充技能能量
-                if (skillState) addSkillEnergy(skillState, gainedMass);
+                // 補充技能能量 (擊殺轉化率降低為 10%)
+                if (skillState) addSkillEnergy(skillState, gainedMass * 0.1);
               }
               shatterEntity(other);
             }
@@ -2792,8 +2792,8 @@ async function executeFlashStep() {
       updateCombo();
       showMassFeed(gainedMass, 'green');
       
-      // 補充技能能量
-      if (skillState) addSkillEnergy(skillState, gainedMass);
+      // 補充技能能量 (擊殺轉化率降低為 10%)
+      if (skillState) addSkillEnergy(skillState, gainedMass * 0.1);
       
       // TRIGGER SHAKE WITH SLIGHT DELAY (to avoid being cancelled by high-speed movement interpolation)
       setTimeout(() => {
