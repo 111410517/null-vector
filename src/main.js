@@ -276,6 +276,9 @@ function spawnNPC(index, customX, customY, customMass, isDemoScripted, avoidViru
   ent.protectionTime = 0; // 進入遊戲不應該有保護時間
   ent.spawnDelay = customMass ? 0 : 1000;
   ent.efficiency = Math.random() > 0.5 ? 0.67 : 1.0;
+  
+  // [NEW] 播放與玩家同款的入場特效
+  triggerSpawnVFX(x, y);
 }
 
 function startGame() {
