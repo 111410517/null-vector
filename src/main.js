@@ -2973,6 +2973,7 @@ async function showRewardScreen(isVictory) {
 
   // 1. XP Bar Initialization
   barFill.style.width = `${startPct * 100}%`;
+  levelLabel.textContent = `Lv.${initialLevel}`; // [FIX] 確保初始顯示正確等級
   xpValue.textContent = '+0 XP';
   goldValue.textContent = '+0';
   spRow.style.display = 'none';
