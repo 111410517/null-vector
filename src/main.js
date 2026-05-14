@@ -31,7 +31,11 @@ let isGameRunning = false;
 let isPaused = false;
 let screenShake = 0;
 let spawnedNPCs = 0; // Track spawned NPCs for win condition
+
+// 手機設備檢測
+const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 let joyZone, joyThumb;
+let skillDrag = { active: false, startX: 0, startY: 0, vector: { x: 0, y: 0 } };
 let startTime = 0;
 let elapsedTime = 0;
 let tutorialPauseStart = 0;
@@ -899,7 +903,10 @@ function update(delta) {
   const followLerp = 0.1;
 
   if (player) {
-    let targetZoom = Math.max(minZoom, 0.85 / (1 + (player.mass - CONFIG.initialMass) * 0.0006));
+    // 手機端使用更小的初始縮放（0.6），讓視野更開闊
+    const baseZoom = isTouchDevice ? 0.6 : 0.85;
+    // 讓視野隨體型成長而縮放得更快（0.0006 -> 0.0012）
+    let targetZoom = Math.max(minZoom, baseZoom / (1 + (player.mass - CONFIG.initialMass) * 0.0012));
     if (player.isBoosting) targetZoom *= 0.85; 
     app.stage.scale.x += (targetZoom - app.stage.scale.x) * zoomLerp;
     app.stage.scale.y += (targetZoom - app.stage.scale.y) * zoomLerp;
@@ -957,7 +964,8 @@ function handleInputs() {
     return;
   }
   // MOUSE CONTROL (PC Mode)
-  if (!joystick.active) {
+  // 如果是觸控設備或正在使用搖桿，則停用滑鼠位置偵測
+  if (!joystick.active && !isTouchDevice) {
     const screenPos = new PIXI.Point(mousePos.x, mousePos.y);
     const worldMouse = app.stage.toLocal(screenPos);
     const diff = Matter.Vector.sub(worldMouse, player.body.position);
@@ -1326,16 +1334,28 @@ function shatterEntity(ent) {
 
 // --- Inputs ---
 function setupInputs() {
-  window.addEventListener('mousemove', (e) => {
-    mousePos.x = e.clientX;
-    mousePos.y = e.clientY;
+  window.addEventListener('pointermove', (e) => {
+    // 只有真正的滑鼠移動才更新滑鼠座標，防止手機觸控誤發
+    if (e.pointerType === 'mouse') {
+      mousePos.x = e.clientX;
+      mousePos.y = e.clientY;
+    }
   });
 
   const skillBtn = document.getElementById('skill-btn');
   
   // Skill activation (replaces old boost)
-  const activateSkill = () => {
+  const activateSkill = (e) => {
     if (isGameOver || isPaused || isTutorialActive() || !player || !skillState) return;
+    
+    // 如果是觸控，啟動拖動瞄準模式
+    if (e && e.touches) {
+      skillDrag.active = true;
+      skillDrag.startX = e.touches[0].clientX;
+      skillDrag.startY = e.touches[0].clientY;
+      skillDrag.vector = { x: 0, y: 0 };
+    }
+
     if (skillState.isDefaultBoost) {
       player.isBoosting = true;
       return;
@@ -1343,22 +1363,37 @@ function setupInputs() {
     handleSkillActivation();
   };
   const deactivateSkill = () => {
-    if (!player || !skillState) return;
-    if (skillState.isDefaultBoost) {
-      player.isBoosting = false;
-      return;
+    if (!player) return;
+    player.isBoosting = false;
+    
+    if (skillDrag.active) {
+      skillDrag.active = false;
     }
+
     handleSkillDeactivation();
   };
 
-  window.addEventListener('mousedown', (e) => {
-    if (e.target.tagName === 'BUTTON' || e.target.closest('#leaderboard')) return;
-    if (e.button === 0) activateSkill();
-  });
+  skillBtn.addEventListener('mousedown', (e) => activateSkill(e));
   window.addEventListener('mouseup', deactivateSkill);
-
-  skillBtn.addEventListener('touchstart', (e) => { e.preventDefault(); activateSkill(); });
+  skillBtn.addEventListener('touchstart', (e) => { e.preventDefault(); activateSkill(e); });
   window.addEventListener('touchend', deactivateSkill);
+
+  // 處理技能拖動瞄準 (Mobile Drag Aim)
+  window.addEventListener('touchmove', (e) => {
+    if (!skillDrag.active || !skillState.isChanneling) return;
+    const touch = e.touches[0];
+    const dx = touch.clientX - skillDrag.startX;
+    const dy = touch.clientY - skillDrag.startY;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    const maxDrag = 80; // 拖動 80px 達到最大射程
+    const normalizedDist = Math.min(dist, maxDrag) / maxDrag;
+    const angle = Math.atan2(dy, dx);
+    
+    skillDrag.vector = {
+      x: Math.cos(angle) * normalizedDist,
+      y: Math.sin(angle) * normalizedDist
+    };
+  }, { passive: false });
 
   joyZone = document.getElementById('joystick-container');
   joyThumb = document.getElementById('joystick-thumb');
@@ -2180,8 +2215,12 @@ function executeSprint() {
   // Dash in current movement direction
   const vel = player.body.velocity;
   let angle = Math.atan2(vel.y, vel.x);
-  if (Math.sqrt(vel.x * vel.x + vel.y * vel.y) < 0.5) {
-    // Use mouse direction if not moving
+  
+  if (isTouchDevice && joystick.vector.x !== 0) {
+    // 手機模式：優先使用搖桿指向
+    angle = Math.atan2(joystick.vector.y, joystick.vector.x);
+  } else if (Math.sqrt(vel.x * vel.x + vel.y * vel.y) < 0.5) {
+    // PC 模式或靜止時：使用滑鼠方向
     const screenPos = new PIXI.Point(mousePos.x, mousePos.y);
     const worldMouse = app.stage.toLocal(screenPos);
     const diff = Matter.Vector.sub(worldMouse, player.body.position);
@@ -2235,10 +2274,15 @@ function performSingleDash(cost) {
   showFloatingText(player.body.position.x, player.body.position.y, `-${actualCost}`, 0xFF4444);
 
   // Dash toward current mouse/joystick direction
-  const screenPos = new PIXI.Point(mousePos.x, mousePos.y);
-  const worldMouse = app.stage.toLocal(screenPos);
-  const diff = Matter.Vector.sub(worldMouse, player.body.position);
-  const angle = Math.atan2(diff.y, diff.x);
+  let angle = 0;
+  if (isTouchDevice && (joystick.vector.x !== 0 || joystick.vector.y !== 0)) {
+    angle = Math.atan2(joystick.vector.y, joystick.vector.x);
+  } else {
+    const screenPos = new PIXI.Point(mousePos.x, mousePos.y);
+    const worldMouse = app.stage.toLocal(screenPos);
+    const diff = Matter.Vector.sub(worldMouse, player.body.position);
+    angle = Math.atan2(diff.y, diff.x);
+  }
 
   const force = SKILL_DEFS.tripleDash.dashForce;
   Matter.Body.setVelocity(player.body, {
@@ -2288,19 +2332,39 @@ async function executeFlashStep() {
   }
 
   // Calculate target position
-  const screenPos = new PIXI.Point(mousePos.x, mousePos.y);
-  const worldMouse = app.stage.toLocal(screenPos);
+  let targetX, targetY;
   const radius = calculateRadius(player.mass);
   const maxDist = radius * def.maxRangeMultiplier;
 
-  const diff = Matter.Vector.sub(worldMouse, player.body.position);
-  const dist = Matter.Vector.magnitude(diff);
-  const clampedDist = Math.min(dist, maxDist);
-  const norm = Matter.Vector.normalise(diff);
-  const startX = player.body.position.x;
-  const startY = player.body.position.y;
-  const targetX = Math.max(100, Math.min(CONFIG.worldSize - 100, startX + norm.x * clampedDist));
-  const targetY = Math.max(100, Math.min(CONFIG.worldSize - 100, startY + norm.y * clampedDist));
+  if (isTouchDevice && skillDrag.active && (skillDrag.vector.x !== 0 || skillDrag.vector.y !== 0)) {
+    // 手機模式：使用技能鈕拖動位移決定落點
+    const mag = Math.sqrt(skillDrag.vector.x ** 2 + skillDrag.vector.y ** 2);
+    const clampedDist = mag * maxDist;
+    const angle = Math.atan2(skillDrag.vector.y, skillDrag.vector.x);
+    targetX = player.body.position.x + Math.cos(angle) * clampedDist;
+    targetY = player.body.position.y + Math.sin(angle) * clampedDist;
+  } else if (isTouchDevice) {
+    // 手機模式：若沒拖動，則往目前移動方向閃現一段距離
+    const vel = player.body.velocity;
+    const moveAngle = Math.atan2(vel.y, vel.x);
+    const d = maxDist * 0.6; // 預設 60% 距離
+    targetX = player.body.position.x + Math.cos(moveAngle) * d;
+    targetY = player.body.position.y + Math.sin(moveAngle) * d;
+  } else {
+    // PC 模式：使用滑鼠座標
+    const screenPos = new PIXI.Point(mousePos.x, mousePos.y);
+    const worldMouse = app.stage.toLocal(screenPos);
+    const diff = Matter.Vector.sub(worldMouse, player.body.position);
+    const dist = Matter.Vector.magnitude(diff);
+    const clampedDist = Math.min(dist, maxDist);
+    const norm = Matter.Vector.normalise(diff);
+    targetX = player.body.position.x + norm.x * clampedDist;
+    targetY = player.body.position.y + norm.y * clampedDist;
+  }
+  
+  // 邊界限制
+  targetX = Math.max(100, Math.min(CONFIG.worldSize - 100, targetX));
+  targetY = Math.max(100, Math.min(CONFIG.worldSize - 100, targetY));
 
   // NEW: Fast Dash instead of teleport
   const dashSteps = 2; // Reduced for faster movement
@@ -2442,14 +2506,32 @@ function updateSkillEffects(delta) {
     const radius = calculateRadius(player.mass);
     const maxDist = radius * SKILL_DEFS.flashStep.maxRangeMultiplier;
 
-    const screenPos = new PIXI.Point(mousePos.x, mousePos.y);
-    const worldMouse = app.stage.toLocal(screenPos);
-    const diff = Matter.Vector.sub(worldMouse, player.body.position);
-    const dist = Matter.Vector.magnitude(diff);
-    const clampedDist = Math.min(dist, maxDist);
-    const norm = Matter.Vector.normalise(diff);
-    const tx = Math.max(100, Math.min(CONFIG.worldSize - 100, player.body.position.x + norm.x * clampedDist));
-    const ty = Math.max(100, Math.min(CONFIG.worldSize - 100, player.body.position.y + norm.y * clampedDist));
+    let tx, ty;
+    if (isTouchDevice && skillDrag.active && (skillDrag.vector.x !== 0 || skillDrag.vector.y !== 0)) {
+      const mag = Math.sqrt(skillDrag.vector.x ** 2 + skillDrag.vector.y ** 2);
+      const d = mag * maxDist;
+      const angle = Math.atan2(skillDrag.vector.y, skillDrag.vector.x);
+      tx = player.body.position.x + Math.cos(angle) * d;
+      ty = player.body.position.y + Math.sin(angle) * d;
+    } else if (isTouchDevice) {
+      // 預設朝向移動方向
+      const vel = player.body.velocity;
+      const angle = Math.atan2(vel.y, vel.x);
+      const d = maxDist * 0.6;
+      tx = player.body.position.x + Math.cos(angle) * d;
+      ty = player.body.position.y + Math.sin(angle) * d;
+    } else {
+      const screenPos = new PIXI.Point(mousePos.x, mousePos.y);
+      const worldMouse = app.stage.toLocal(screenPos);
+      const diff = Matter.Vector.sub(worldMouse, player.body.position);
+      const dist = Matter.Vector.magnitude(diff);
+      const d = Math.min(dist, maxDist);
+      const norm = Matter.Vector.normalise(diff);
+      tx = player.body.position.x + norm.x * d;
+      ty = player.body.position.y + norm.y * d;
+    }
+    tx = Math.max(100, Math.min(CONFIG.worldSize - 100, tx));
+    ty = Math.max(100, Math.min(CONFIG.worldSize - 100, ty));
 
     // Draw target circle
     flashStepIndicator.clear();
