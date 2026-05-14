@@ -1,11 +1,9 @@
 /**
- * progression.js — 等級、經驗值、金幣、技能點、皮膚管理
+ * progression.js — 等級、經驗值、金幣、技能點管理
  * 
  * 所有跨局進度資料使用 localStorage 持久化。
  * 等級範圍 Lv.1 ~ Lv.10，約 15~25 場可滿級。
  */
-
-import { SKIN_DEFS, getSkinDef } from './skins.js';
 
 const STORAGE_KEY = 'null-vector-progress';
 
@@ -264,34 +262,4 @@ export function equipSkill(progress, skillId) {
   return true;
 }
 
-/**
- * 購買皮膚
- * @param {object} progress - 進度物件
- * @param {string} skinId - 皮膚 ID
- * @returns {boolean} 是否成功購買
- */
-export function buySkin(progress, skinId) {
-  const skin = getSkinDef(skinId);
-  if (!skin || skin.id === 'default') return false;
-  if (progress.skins.owned.includes(skinId)) return false;
-  if (progress.gold < skin.price) return false;
-
-  progress.gold -= skin.price;
-  progress.skins.owned.push(skinId);
-  return true;
-}
-
-/**
- * 裝備皮膚
- * @param {object} progress - 進度物件
- * @param {string} skinId - 皮膚 ID
- * @returns {boolean} 是否成功裝備
- */
-export function equipSkinItem(progress, skinId) {
-  if (!progress.skins.owned.includes(skinId)) return false;
-  progress.skins.equipped = skinId;
-  return true;
-}
-
 export { MAX_LEVEL };
-
