@@ -457,26 +457,30 @@ function createEntity(x, y, mass, name, isPlayer) {
     const speedGroup = new PIXI.Container();
     
     const speedIcon = new PIXI.Graphics();
-    // 使用高厚度圓角線條繪製圓潤閃電
-    speedIcon.stroke({ width: 6, color: 0xFFFFFF, cap: 'round', join: 'round' });
-    speedIcon.moveTo(4, -10);
-    speedIcon.lineTo(-2, 0);
-    speedIcon.lineTo(3, 0);
-    speedIcon.lineTo(-4, 10);
-    
-    speedIcon.scale.set(0.9);
+    // 繪製更粗、更圓潤的向量閃電
+    speedIcon.setStrokeStyle({ 
+      width: 5, 
+      color: 0xFFFFFF, 
+      cap: 'round', 
+      join: 'round' 
+    });
+    speedIcon.moveTo(5, -10);
+    speedIcon.lineTo(-2, 1);
+    speedIcon.lineTo(2, -1);
+    speedIcon.lineTo(-5, 10);
+    speedIcon.stroke();
     speedGroup.addChild(speedIcon);
 
     const speedIndicator = new PIXI.Text({
       text: '+0%',
       style: {
-        fontFamily: 'Outfit', fontSize: 20, fill: 0xFFFFFF,
+        fontFamily: 'Outfit', fontSize: 16, fill: 0xFFFFFF,
         fontWeight: '900',
-        stroke: { color: 0x000000, width: 6, join: 'round' }
+        stroke: { color: 0x000000, width: 4, join: 'round' }
       }
     });
     speedIndicator.anchor.set(0, 0.5);
-    speedIndicator.x = 12; // 增加間距以適應更粗的閃電
+    speedIndicator.x = 8; // 位於閃電右側
     speedGroup.addChild(speedIndicator);
 
     speedGroup.visible = false;
