@@ -1034,7 +1034,10 @@ function update(delta) {
       const overlay = document.getElementById('combo-overlay');
       const text = document.getElementById('combo-text-container');
       if (overlay) overlay.classList.remove('active');
-      if (text) text.classList.remove('active');
+      if (text) {
+        text.classList.remove('active');
+        text.classList.remove('warning');
+      }
     } else {
       // 更新計時條
       const bar = document.querySelector('.combo-timer-bar');
