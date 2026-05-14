@@ -457,7 +457,7 @@ function createEntity(x, y, mass, name, isPlayer) {
     const speedIndicator = new PIXI.Text({
       text: '⚡ +0%',
       style: {
-        fontFamily: 'Outfit', fontSize: 16, fill: 0x00FFBB,
+        fontFamily: 'Outfit', fontSize: 16, fill: 0xFFFFFF,
         fontWeight: '900',
         stroke: { color: 0x000000, width: 4, join: 'round' }
       }
@@ -978,7 +978,7 @@ function update(delta) {
       
       if (ent.speedIndicator) {
         ent.speedIndicator.text = `⚡ ${sign}${displayPct}%`;
-        ent.speedIndicator.style.fill = displayPct >= 0 ? 0x00FFBB : 0xFF4444;
+        ent.speedIndicator.style.fill = 0xFFFFFF; // 始終為白色
         ent.speedIndicator.scale.set(inverseZoom);
       }
 
@@ -1001,14 +1001,13 @@ function update(delta) {
         ent.dirIndicator.x = Math.cos(ent.smoothRotation) * baseDist;
         ent.dirIndicator.y = Math.sin(ent.smoothRotation) * baseDist;
         
-        // Position Speed Indicator (To the left of movement, slightly further out)
+        // Position Speed Indicator (Always to the absolute LEFT of the character, horizontal)
         if (ent.speedIndicator) {
           ent.speedIndicator.visible = true;
-          const speedAngle = ent.smoothRotation - Math.PI / 2;
-          const speedDist = baseDist + (30 * inverseZoom);
-          ent.speedIndicator.x = Math.cos(speedAngle) * speedDist;
-          ent.speedIndicator.y = Math.sin(speedAngle) * speedDist;
-          ent.speedIndicator.rotation = ent.smoothRotation; // Keep same orientation as indicator for style
+          const speedDist = baseDist + (40 * inverseZoom);
+          ent.speedIndicator.x = -speedDist; // 絕對左側
+          ent.speedIndicator.y = 0;
+          ent.speedIndicator.rotation = 0; // 不跟隨旋轉，保持橫向
         }
       } else {
         ent.dirIndicator.visible = false;
@@ -2923,6 +2922,16 @@ function updateSkillEffects(delta) {
       const sustainDur = getSkillParam(def, 'sustainDuration', skillState.level);
       skillState.overdriveSpeedMult = def.maxSpeedMult;
       if (skillState.overdriveElapsed >= sustainDur) {
+        skillState.overdrivePhase = 'decay';
+        skillState.overdriveElapsed = 0;
+      }
+      player.isBoosting = true;
+    } else if (skillState.overdrivePhase === 'decay') {
+      const decayDur = 800; // 0.8秒平滑跌落
+      const decayProgress = Math.min(1, skillState.overdriveElapsed / decayDur);
+      // 從 maxSpeedMult 跌落回 1.0
+      skillState.overdriveSpeedMult = def.maxSpeedMult - decayProgress * (def.maxSpeedMult - 1.0);
+      if (decayProgress >= 1) {
         endOverdrive();
       }
       player.isBoosting = true;
