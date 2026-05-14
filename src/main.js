@@ -453,23 +453,25 @@ function createEntity(x, y, mass, name, isPlayer) {
     container.addChild(dirIndicator);
     entity.dirIndicator = dirIndicator;
 
-    // [NEW] Speed Multiplier Group (Icon + Text)
+    // [NEW] Speed Multiplier Group
     const speedGroup = new PIXI.Container();
     
-    const speedIcon = new PIXI.Graphics();
-    // 繪製更粗、更圓潤的向量閃電
-    speedIcon.setStrokeStyle({ 
-      width: 5, 
-      color: 0xFFFFFF, 
-      cap: 'round', 
-      join: 'round' 
-    });
-    speedIcon.moveTo(5, -10);
-    speedIcon.lineTo(-2, 1);
-    speedIcon.lineTo(2, -1);
-    speedIcon.lineTo(-5, 10);
-    speedIcon.stroke();
-    speedGroup.addChild(speedIcon);
+    // Draw a custom white lightning bolt
+    const bolt = new PIXI.Graphics();
+    bolt.poly([
+      5, 0,
+      0, 10,
+      4, 10,
+      2, 20,
+      10, 8,
+      6, 8,
+      10, 0
+    ]);
+    bolt.fill(0xFFFFFF);
+    bolt.scale.set(0.8);
+    bolt.x = -32; // Offset to the left of text
+    bolt.y = -8;
+    speedGroup.addChild(bolt);
 
     const speedIndicator = new PIXI.Text({
       text: '+0%',
@@ -480,13 +482,12 @@ function createEntity(x, y, mass, name, isPlayer) {
       }
     });
     speedIndicator.anchor.set(0, 0.5);
-    speedIndicator.x = 8; // 位於閃電右側
+    speedIndicator.x = -18; 
     speedGroup.addChild(speedIndicator);
-
-    speedGroup.visible = false;
+    
     container.addChild(speedGroup);
-    entity.speedGroup = speedGroup;
     entity.speedIndicator = speedIndicator;
+    entity.speedGroup = speedGroup;
   }
 
   // Draw initial life rings
@@ -998,10 +999,8 @@ function update(delta) {
       const displayPct = Math.round((totalMult - 1.0) * 100);
       const sign = displayPct >= 0 ? '+' : '';
       
-      if (ent.speedIndicator) {
+      if (ent.speedIndicator && ent.speedGroup) {
         ent.speedIndicator.text = `${sign}${displayPct}%`;
-      }
-      if (ent.speedGroup) {
         ent.speedGroup.scale.set(inverseZoom);
       }
 
@@ -1024,10 +1023,10 @@ function update(delta) {
         ent.dirIndicator.x = Math.cos(ent.smoothRotation) * baseDist;
         ent.dirIndicator.y = Math.sin(ent.smoothRotation) * baseDist;
         
-        // Position Speed Group (Always to the absolute LEFT of the character, horizontal)
+        // Position Speed Indicator (Always to the absolute LEFT of the character, horizontal)
         if (ent.speedGroup) {
           ent.speedGroup.visible = true;
-          const speedDist = baseDist + (50 * inverseZoom);
+          const speedDist = baseDist + (40 * inverseZoom);
           ent.speedGroup.x = -speedDist; // 絕對左側
           ent.speedGroup.y = 0;
           ent.speedGroup.rotation = 0; // 不跟隨旋轉，保持橫向
