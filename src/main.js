@@ -537,8 +537,16 @@ function drawEntityBody(g, isPlayer, radius, ent) {
   const vertices = [];
   for (let i = 0; i < points; i++) {
     const angle = (i / points) * Math.PI * 2;
+    // [NEW] Flash Step Channeling Effect (Expansion + Jitter)
+    let channelScale = 1.0;
+    let jitter = 0;
+    if (ent.isPlayer && skillState && skillState.skillId === 'flashStep' && skillState.isChanneling) {
+      channelScale = 1.15; // 體型略為加大
+      jitter = (Math.random() - 0.5) * 4; // 輕微抖動
+    }
+
     const ripple = Math.sin(angle * 6 + time) * wobbleAmp;
-    let r = radius + ripple;
+    let r = (radius * channelScale) + ripple + jitter;
     r += (Math.sin(angle) ** 2) * squeezeX;
     r += (Math.cos(angle) ** 2) * squeezeY;
 
@@ -868,20 +876,21 @@ function update(delta) {
       if (ent.isPlayer && skillState) {
         const isDefaultBoost = skillState.isDefaultBoost && ent.isBoosting;
         const isOverdrive = skillState.skillId === 'overdrive' && skillState.isActive;
-        const isTripleDash = skillState.skillId === 'tripleDash' && skillState.isActive;
-        const isFlashStep = skillState.skillId === 'flashStep' && (skillState.isChanneling || skillState.isActive);
+        const isTripleDash = skillState.skillId === 'tripleDash' && (ent.dashVisualTimer > 0);
+        const isFlashStep = skillState.skillId === 'flashStep' && (skillState.isActive && !skillState.isChanneling);
         const isSprint = skillState.skillId === 'sprint' && (ent.sprintVisualTimer > 0);
 
         if (isDefaultBoost || isOverdrive || isTripleDash || isFlashStep || isSprint) {
           ent.isBoosting = true;
           if (ent.sprintVisualTimer > 0) ent.sprintVisualTimer -= delta.elapsedMS;
+          if (ent.dashVisualTimer > 0) ent.dashVisualTimer -= delta.elapsedMS;
         } else {
           ent.isBoosting = false;
         }
       }
 
       const targetBoost = ent.isBoosting ? 1.0 : 0.0;
-      ent.boostFactor += (targetBoost - ent.boostFactor) * 0.08;
+      ent.boostFactor += (targetBoost - ent.boostFactor) * 0.05; // Softer lerp (0.08 -> 0.05)
 
       const isSkillBoost = ent.isPlayer && skillState && !skillState.isDefaultBoost && skillState.isActive;
       if (ent.isBoosting && ent.mass > 20 && !isSkillBoost) {
@@ -2731,6 +2740,7 @@ function performSingleDash(cost) {
   }
 
   const force = SKILL_DEFS.tripleDash.dashForce;
+  player.dashVisualTimer = 300; // Trigger body stretch for 300ms
   Matter.Body.setVelocity(player.body, {
     x: Math.cos(angle) * force,
     y: Math.sin(angle) * force
