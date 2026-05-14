@@ -2641,9 +2641,12 @@ async function executeFlashStep() {
   targetX = Math.max(100, Math.min(CONFIG.worldSize - 100, targetX));
   targetY = Math.max(100, Math.min(CONFIG.worldSize - 100, targetY));
 
+  const startX = player.body.position.x;
+  const startY = player.body.position.y;
+  const startPos = { x: startX, y: startY };
+  
   // NEW: Fast Dash instead of teleport
   const dashSteps = 2; // Reduced for faster movement
-  const startPos = { x: startX, y: startY };
   
   let killedSomething = false;
   
