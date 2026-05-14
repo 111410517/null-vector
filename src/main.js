@@ -55,8 +55,9 @@ let comboCount = 0;
 let lastKillTime = 0;
 const COMBO_WINDOW = 5000; // 5 秒連擊窗口
 
-/** 閃現技能的全域時間縮放 (1.0 = 正常, 0.3 = 減速) */
+/** 閃現技能的全域時間縮放 */
 let timeScale = 1.0;
+let targetTimeScale = 1.0;
 let fpsUpdateTimer = 0; // FPS 更新計時器
 
 const NPC_NAMES = [
@@ -784,6 +785,14 @@ function createGrid() {
 }
 
 function update(delta) {
+  // Smoothly move timeScale towards target for "Power Sense"
+  if (timeScale < targetTimeScale) {
+    timeScale = Math.min(targetTimeScale, timeScale + 0.04 * delta.deltaTime);
+  } else if (timeScale > targetTimeScale) {
+    // Going into slow-mo can be slightly faster
+    timeScale = Math.max(targetTimeScale, timeScale - 0.08 * delta.deltaTime);
+  }
+
   // Apply timeScale (Flash Step bullet time)
   // Ensure time stops during Pause or Tutorial
   const isPausedOrTutorial = isPaused || isTutorialActive();
@@ -1203,17 +1212,10 @@ function handleInputs() {
 
     const def = SKILL_DEFS.flashStep;
     const baseMaxRange = calculateRadius(player.mass) * def.maxRangeMultiplier;
-    const softLimit = baseMaxRange * 0.7; // Earlier damping start
-    
-    let finalDist;
-    if (dist <= softLimit) {
-      finalDist = dist;
-    } else {
-      // Use a square-root curve for "infinite resistance" feel
-      // This means the point always moves forward, but slower and slower
-      const overflow = dist - softLimit;
-      finalDist = softLimit + Math.sqrt(overflow) * (baseMaxRange * 0.05);
-    }
+    const softLimit = baseMaxRange * 0.8;
+    // Infinite Damping logic: Beyond 80% range, movement is much harder (0.1 factor)
+    // No more maxVisualRange cap
+    const finalDist = dist <= softLimit ? dist : softLimit + (dist - softLimit) * 0.1;
     const normalizedDist = finalDist / baseMaxRange;
 
     if (dist > 0) {
@@ -1810,15 +1812,8 @@ function setupInputs() {
     
     // Infinite Elastic Damping for Mobile
     const baseDrag = 80; 
-    const softLimit = baseDrag * 0.7;
-    
-    let finalDrag;
-    if (dist <= softLimit) {
-      finalDrag = dist;
-    } else {
-      const overflow = dist - softLimit;
-      finalDrag = softLimit + Math.sqrt(overflow) * (baseDrag * 0.05);
-    }
+    const softLimit = baseDrag * 0.8;
+    const finalDrag = dist <= softLimit ? dist : softLimit + (dist - softLimit) * 0.1;
     const normalizedDist = finalDrag / baseDrag;
     
     const angle = Math.atan2(dy, dx);
@@ -2835,7 +2830,7 @@ let flashStepLine = null;
 function startFlashStepChannel() {
   skillState.isChanneling = true;
   skillState.isActive = true;
-  timeScale = SKILL_DEFS.flashStep.slowMotionScale;
+  targetTimeScale = SKILL_DEFS.flashStep.slowMotionScale;
 
   // Add visual effect class
   document.body.classList.add('skill-channeling');
@@ -2852,19 +2847,10 @@ async function executeFlashStep() {
   if (!skillState.isChanneling) return;
   skillState.isChanneling = false;
   
-  // Smoothly recover timeScale (linear decay over 400ms)
-  const startT = timeScale;
-  const targetT = 1.0;
-  const duration = 400;
-  const startTimeRec = Date.now();
-  
-  const recovery = () => {
-    const elapsed = Date.now() - startTimeRec;
-    const p = Math.min(1, elapsed / duration);
-    timeScale = startT + (targetT - startT) * p;
-    if (p >= 1) app.ticker.remove(recovery);
-  };
-  app.ticker.add(recovery);
+  // Power Sense Transition: Small delay then ramp up timeScale
+  setTimeout(() => {
+    targetTimeScale = 1.0;
+  }, 120);
 
   document.body.classList.remove('skill-channeling');
   document.body.classList.remove('hide-cursor');
