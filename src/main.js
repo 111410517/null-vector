@@ -345,7 +345,7 @@ function startGame() {
     } else {
       spawnNPC(spawnedNPCs++);
     }
-  }, 1000);
+  }, 400);
 }
 
 function createEntity(x, y, mass, name, isPlayer) {
