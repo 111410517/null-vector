@@ -453,16 +453,24 @@ function createEntity(x, y, mass, name, isPlayer) {
     container.addChild(dirIndicator);
     entity.dirIndicator = dirIndicator;
 
-    // [NEW] Speed Multiplier Indicator
+    // [NEW] Speed Multiplier Group (Icon + Text)
     const speedGroup = new PIXI.Container();
     
     const speedIcon = new PIXI.Graphics();
-    // Draw a sharp white lightning bolt
-    speedIcon.poly([0, 0, 8, 0, 3, 7, 9, 7, 1, 18, 5, 9, -1, 9]);
+    // 繪製簡潔的向量閃電
+    speedIcon.poly([
+      5, -10,
+      -3, 0,
+      1, 0,
+      -5, 10,
+      3, 0,
+      -1, 0
+    ]);
     speedIcon.fill({ color: 0xFFFFFF });
     speedIcon.scale.set(0.8);
-    
-    const speedText = new PIXI.Text({
+    speedGroup.addChild(speedIcon);
+
+    const speedIndicator = new PIXI.Text({
       text: '+0%',
       style: {
         fontFamily: 'Outfit', fontSize: 16, fill: 0xFFFFFF,
@@ -470,16 +478,14 @@ function createEntity(x, y, mass, name, isPlayer) {
         stroke: { color: 0x000000, width: 4, join: 'round' }
       }
     });
-    speedText.anchor.set(0, 0.5);
-    speedText.x = 12; // Space after icon
-    
-    speedGroup.addChild(speedIcon);
-    speedGroup.addChild(speedText);
+    speedIndicator.anchor.set(0, 0.5);
+    speedIndicator.x = 8; // 位於閃電右側
+    speedGroup.addChild(speedIndicator);
+
+    speedGroup.visible = false;
     container.addChild(speedGroup);
-    
-    entity.speedIndicator = speedText;
-    entity.speedIcon = speedIcon;
     entity.speedGroup = speedGroup;
+    entity.speedIndicator = speedIndicator;
   }
 
   // Draw initial life rings
@@ -993,6 +999,8 @@ function update(delta) {
       
       if (ent.speedIndicator) {
         ent.speedIndicator.text = `${sign}${displayPct}%`;
+      }
+      if (ent.speedGroup) {
         ent.speedGroup.scale.set(inverseZoom);
       }
 
@@ -1015,11 +1023,11 @@ function update(delta) {
         ent.dirIndicator.x = Math.cos(ent.smoothRotation) * baseDist;
         ent.dirIndicator.y = Math.sin(ent.smoothRotation) * baseDist;
         
-        // Position Speed Indicator (Always to the absolute LEFT of the character, horizontal)
+        // Position Speed Group (Always to the absolute LEFT of the character, horizontal)
         if (ent.speedGroup) {
           ent.speedGroup.visible = true;
-          const speedDist = baseDist + (40 * inverseZoom);
-          ent.speedGroup.x = -speedDist - (20 * inverseZoom); // Adjust for group width
+          const speedDist = baseDist + (50 * inverseZoom);
+          ent.speedGroup.x = -speedDist; // 絕對左側
           ent.speedGroup.y = 0;
           ent.speedGroup.rotation = 0; // 不跟隨旋轉，保持橫向
         }
