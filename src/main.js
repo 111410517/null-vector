@@ -2944,6 +2944,9 @@ function drawBladeSlash(start, end) {
 function cleanupFlashStepVisuals() {
   if (flashStepIndicator) { gameContainer.removeChild(flashStepIndicator); flashStepIndicator = null; }
   if (flashStepLine) { gameContainer.removeChild(flashStepLine); flashStepLine = null; }
+  // Reset drag vector
+  skillDrag.vector.x = 0;
+  skillDrag.vector.y = 0;
 }
 
 /** Point-to-segment distance helper */
@@ -3039,6 +3042,12 @@ function updateSkillEffects(delta) {
       const norm = Matter.Vector.normalise(diff);
       tx = player.body.position.x + norm.x * d;
       ty = player.body.position.y + norm.y * d;
+
+      // [NEW] Sync skillDrag.vector for PC mode to enable camera following
+      if (maxDist > 0) {
+        skillDrag.vector.x = norm.x * (d / maxDist);
+        skillDrag.vector.y = norm.y * (d / maxDist);
+      }
     }
     tx = Math.max(100, Math.min(CONFIG.worldSize - 100, tx));
     ty = Math.max(100, Math.min(CONFIG.worldSize - 100, ty));
