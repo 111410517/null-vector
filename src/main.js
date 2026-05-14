@@ -1135,7 +1135,7 @@ function update(delta) {
     boostTextTimer += delta.deltaTime;
     if (boostTextTimer > 30) {
       if (boostAccumulator > 1) {
-        showFloatingText(player.body.position.x, player.body.position.y, `-${Math.floor(boostAccumulator)}`, 0xFF4444);
+        showMassFeed(-boostAccumulator, 'red');
         boostAccumulator = 0;
       }
       boostTextTimer = 0;
@@ -1654,7 +1654,9 @@ function shatterEntity(ent) {
     if (ent.isPlayer) {
       ent.isRespawning = true;
       updateLivesUI();
-      showFloatingText(ent.body.position.x, ent.body.position.y, `-20%`, 0xFF4444);
+      
+      const massLoss = ent.mass * 0.2;
+      showMassFeed(-massLoss, 'red');
 
       ent.container.visible = false;
       Matter.Body.setPosition(ent.body, { x: -5000, y: -5000 });
