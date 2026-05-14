@@ -1073,13 +1073,19 @@ function update(delta) {
     if (skillState && skillState.skillId === 'flashStep' && skillState.isChanneling) {
       targetZoom *= 1.25; // Zoom in slightly while aiming
       
-      // Shift camera pivot towards the aim target
+      // Shift camera pivot to the MIDPOINT between player and target destination
+      // This ensures both player and landing spot are visible and balanced
       if (skillDrag.vector.x !== 0 || skillDrag.vector.y !== 0) {
         const def = SKILL_DEFS.flashStep;
         const maxRange = (player.mass / 10 + 200) * def.maxRangeMultiplier;
-        const lookAhead = maxRange * 0.35; // Follow up to 35% of max range
-        camX += skillDrag.vector.x * lookAhead;
-        camY += skillDrag.vector.y * lookAhead;
+        
+        // Calculate destination based on current aim vector
+        const destX = player.body.position.x + skillDrag.vector.x * maxRange;
+        const destY = player.body.position.y + skillDrag.vector.y * maxRange;
+        
+        // Target the center point between current position and destination
+        camX = (player.body.position.x + destX) / 2;
+        camY = (player.body.position.y + destY) / 2;
       }
     }
 
