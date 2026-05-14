@@ -3044,21 +3044,24 @@ function updateSkillEffects(delta) {
       tx = player.body.position.x + Math.cos(angle) * d;
       ty = player.body.position.y + Math.sin(angle) * d;
     } else {
-      const screenPos = new PIXI.Point(mousePos.x, mousePos.y);
-      const worldMouse = app.stage.toLocal(screenPos);
-      const diff = Matter.Vector.sub(worldMouse, player.body.position);
-      const dist = Matter.Vector.magnitude(diff);
-      const d = Math.min(dist, maxDist);
-      const norm = Matter.Vector.normalise(diff);
+      // [FIX] Stable Aiming: Calculate aim relative to screen center to avoid camera feedback loop
+      // ScreenCenter is the reference point because stage.position is always [width/2, height/2]
+      const dx = (mousePos.x - app.screen.width / 2) / app.stage.scale.x;
+      const dy = (mousePos.y - app.screen.height / 2) / app.stage.scale.y;
       
-      // [FIX] Update skillDrag.vector for camera focus logic
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const d = Math.min(dist, maxDist);
+      const ux = dist > 0 ? dx / dist : 0;
+      const uy = dist > 0 ? dy / dist : 0;
+      
+      // Update skillDrag.vector for camera focus logic
       skillDrag.vector = {
-        x: norm.x * (d / maxDist),
-        y: norm.y * (d / maxDist)
+        x: ux * (d / maxDist),
+        y: uy * (d / maxDist)
       };
 
-      tx = player.body.position.x + norm.x * d;
-      ty = player.body.position.y + norm.y * d;
+      tx = player.body.position.x + ux * d;
+      ty = player.body.position.y + uy * d;
     }
     tx = Math.max(100, Math.min(CONFIG.worldSize - 100, tx));
     ty = Math.max(100, Math.min(CONFIG.worldSize - 100, ty));
