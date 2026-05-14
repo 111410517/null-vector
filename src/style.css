@@ -2591,16 +2591,18 @@ body.hide-cursor, body.hide-cursor * {
 #mass-feed-container {
   position: fixed;
   left: 40px;
-  top: 50%;
+  top: 55%; /* 稍微下移，避開頂部 UI */
   transform: translateY(-50%);
   display: flex;
   flex-direction: column;
-  gap: 15px;
+  gap: 12px;
   pointer-events: none;
   z-index: 2000;
+  perspective: 1000px;
 }
 
 .mass-feed-item {
+  position: relative;
   font-family: 'Outfit', sans-serif;
   font-weight: 900;
   font-size: 2.2rem;
@@ -2608,16 +2610,63 @@ body.hide-cursor, body.hide-cursor * {
   animation: massPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
   opacity: 0;
   white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* 頂部固定的微小變動 */
+.mass-feed-item.pinned {
+  color: #AAAAAA;
+  font-size: 1.8rem;
+  opacity: 1;
+  animation: none;
+  order: -1; /* 始終在最上方 */
+  margin-bottom: 5px;
+  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.mass-feed-item.pinned.jump {
+  animation: massJump 0.3s ease-out;
+}
+
+@keyframes massJump {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.3); color: #FFFFFF; }
+  100% { transform: scale(1); }
+}
+
+/* 關鍵事件樣式 (波普背景) */
+.mass-feed-item.critical {
+  font-size: 3.2rem;
+  padding: 8px 25px;
+  animation: criticalPop 0.5s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+}
+
+.mass-feed-item.critical .halftone-bg {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, currentColor 20%, transparent 25%);
+  background-size: 10px 10px;
+  opacity: 0.15;
+  z-index: -1;
+  mask-image: linear-gradient(to right, black, transparent);
+  -webkit-mask-image: linear-gradient(to right, black, transparent);
+}
+
+@keyframes criticalPop {
+  0% { opacity: 0; transform: translateX(-50px) scale(0.8) rotateX(45deg); filter: blur(10px); }
+  100% { opacity: 1; transform: translateX(0) scale(1) rotateX(0); filter: blur(0); }
 }
 
 .mass-green { color: #00FFBB; }
 .mass-red { color: #FF4444; }
 
 .mass-rainbow {
-  animation: massPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards,
+  animation: criticalPop 0.5s cubic-bezier(0.23, 1, 0.32, 1) forwards,
              rainbowText 2s linear infinite;
-  filter: drop-shadow(0 0 10px rgba(255,255,255,0.5));
-  font-size: 2.8rem;
+  filter: drop-shadow(0 0 15px rgba(255,255,255,0.6));
+  font-size: 3.8rem;
 }
 
 #combo-overlay {
@@ -2669,7 +2718,6 @@ body.hide-cursor, body.hide-cursor * {
   color: #FF4400;
   line-height: 1;
   text-shadow: 0 0 25px rgba(255, 68, 0, 0.8);
-  text-align: right;
 }
 
 .combo-timer-wrapper {

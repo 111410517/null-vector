@@ -1465,31 +1465,82 @@ function updateCombo() {
  * @param {number} amount - 變動值
  * @param {string} type - 'green' | 'red' | 'rainbow'
  */
+let pinnedMassAmount = 0;
+let pinnedMassTimer = null;
+
 function showMassFeed(amount, type) {
-  if (Math.floor(Math.abs(amount)) === 0) return; // 忽略為 0 的變動
+  const roundedAmount = Math.floor(amount);
+  if (roundedAmount === 0) return;
 
   const container = document.getElementById('mass-feed-container');
   if (!container) return;
 
-  const item = document.createElement('div');
-  item.className = `mass-feed-item mass-${type}`;
-  const sign = amount > 0 ? '+' : '';
-  item.textContent = `${sign}${Math.floor(amount)}`;
+  // 1. 小額變動合併 (+2, +10, -1 等)
+  if (Math.abs(amount) < 15) {
+    let pinned = container.querySelector('.mass-feed-item.pinned');
+    if (!pinned) {
+      pinned = document.createElement('div');
+      pinned.className = 'mass-feed-item pinned';
+      container.appendChild(pinned);
+    }
 
-  // 保持 Feed 簡潔，若超過 5 個則移除最舊的
-  if (container.children.length > 5) {
-    container.removeChild(container.firstChild);
+    pinnedMassAmount += roundedAmount;
+    const sign = pinnedMassAmount > 0 ? '+' : '';
+    pinned.textContent = `${sign}${pinnedMassAmount}`;
+    
+    // 根據數值調整大小 (大點點比較顯眼)
+    const scale = Math.abs(roundedAmount) >= 10 ? 1.2 : 1.0;
+    pinned.style.transform = `scale(${scale})`;
+    
+    // 觸發跳動動畫
+    pinned.classList.remove('jump');
+    void pinned.offsetWidth; // Force reflow
+    pinned.classList.add('jump');
+
+    // 自動重置
+    if (pinnedMassTimer) clearTimeout(pinnedMassTimer);
+    pinnedMassTimer = setTimeout(() => {
+      pinned.style.opacity = '0';
+      pinned.style.transform = 'translateX(-20px)';
+      setTimeout(() => {
+        pinned.remove();
+        pinnedMassAmount = 0;
+      }, 300);
+    }, 2500);
+    return;
+  }
+
+  // 2. 關鍵事件 (擊殺、稀罕物、重大傷害)
+  const item = document.createElement('div');
+  const isCritical = Math.abs(amount) >= 50;
+  item.className = `mass-feed-item mass-${type} ${isCritical ? 'critical' : ''}`;
+  
+  if (isCritical) {
+    const bg = document.createElement('div');
+    bg.className = 'halftone-bg';
+    item.appendChild(bg);
+  }
+
+  const sign = amount > 0 ? '+' : '';
+  const textNode = document.createTextNode(`${sign}${roundedAmount}`);
+  item.appendChild(textNode);
+
+  // 保持 Feed 簡潔，若超過 5 個則移除最舊的 (不計入 pinned)
+  const nonPinnedItems = Array.from(container.children).filter(el => !el.classList.contains('pinned'));
+  if (nonPinnedItems.length > 5) {
+    container.removeChild(nonPinnedItems[0]);
   }
 
   container.appendChild(item);
 
-  // 1.5 秒後自動消失
+  // 關鍵事件保留更久 (3秒)，普通事件 1.5秒
+  const duration = isCritical ? 3000 : 1500;
   setTimeout(() => {
     item.style.transition = 'all 0.4s ease';
     item.style.opacity = '0';
     item.style.transform = 'translateX(-30px) scale(0.8)';
     setTimeout(() => item.remove(), 400);
-  }, 1200);
+  }, duration);
 }
 
 /**
@@ -1575,7 +1626,7 @@ function checkCollisions(ent) {
 
         // 觸發對應顏色的特效
         const hexColor = '#' + (tier.color).toString(16).padStart(6, '0');
-        if (tier.label === 'IRIDESCENT') triggerScreenEffect('legendary');
+        triggerScreenEffect('legendary', hexColor);
 
         // 補充技能能量
         if (skillState) addSkillEnergy(skillState, tier.mass);
@@ -2270,6 +2321,15 @@ function renderMinimap() {
     miniCtx.fillStyle = hexColor;
     miniCtx.shadowBlur = 8;
     miniCtx.shadowColor = hexColor;
+    
+    // 繪製動態脈衝環
+    const pulse = (Math.sin(Date.now() * 0.01) + 1) * 0.5; // 0 to 1
+    miniCtx.strokeStyle = hexColor;
+    miniCtx.lineWidth = 1;
+    miniCtx.beginPath();
+    miniCtx.arc(x, y, 4 + pulse * 4, 0, Math.PI * 2);
+    miniCtx.stroke();
+
     miniCtx.beginPath();
     miniCtx.arc(x, y, 4, 0, Math.PI * 2);
     miniCtx.fill();
