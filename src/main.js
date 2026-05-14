@@ -14,6 +14,10 @@ import {
   SKILL_DEFS, createSkillState, getSkillDef, getSkillParam,
   canUseSkill, updateSkillCooldown, startCooldown, getCooldownProgress
 } from './skills.js';
+import {
+  initTutorial, showTutorialStep, isTutorialActive,
+  getTutorialStep, setupTutorialHooks, onSkillEquipped
+} from './tutorial.js';
 
 // --- Game State ---
 let app, engine, world;
@@ -26,12 +30,15 @@ let isGameOver = false;
 let isGameRunning = false;
 let isPaused = false;
 let screenShake = 0;
+let spawnedNPCs = 0; // Track spawned NPCs for win condition
 let joyZone, joyThumb;
 let startTime = 0;
 let elapsedTime = 0;
+let tutorialPauseStart = 0;
 let miniCanvas, miniCtx;
 let boostAccumulator = 0;
 let boostTextTimer = 0;
+let rareItemSpawnTimer = 0; // New: respects isPaused
 
 // --- Progression State ---
 let progress = loadProgress();
@@ -72,19 +79,19 @@ function showLoadingScreen(callback) {
     updateLoadingProgress(0);
     
     // 模擬一個平滑的加載過程
-    let progress = 0;
+    let loadPct = 0;
     const interval = setInterval(() => {
-      progress += Math.random() * 15;
-      if (progress >= 100) {
-        progress = 100;
-        updateLoadingProgress(progress);
+      loadPct += Math.random() * 15;
+      if (loadPct >= 100) {
+        loadPct = 100;
+        updateLoadingProgress(loadPct);
         clearInterval(interval);
         setTimeout(() => {
           if (callback) callback();
           hideLoadingScreen();
         }, 200);
       } else {
-        updateLoadingProgress(progress);
+        updateLoadingProgress(loadPct);
       }
     }, 50);
   } else if (callback) {
@@ -139,16 +146,16 @@ async function init() {
     const ry = CONFIG.worldSize / 2 + (Math.random() - 0.5) * 1500;
     if (i === 0) {
       // NPC 1: Hunter (Hits viruses)
-      spawnNPC(i, rx, ry, 700, true, false, true);
+      spawnNPC(i, rx, ry, 700, true, false, true, false, false, 1.0, 1.1);
     } else if (i === 1) {
       // NPC 2: Opportunist (Hunts NPC 1)
-      spawnNPC(i, rx, ry, 500, false, true, true, true);
+      spawnNPC(i, rx, ry, 500, false, true, true, true, false, 1.0, 1.1);
     } else if (i === 2) {
       // NPC 3: Speedster (Zips around)
-      spawnNPC(i, rx, ry, 25, false, false, false, false, true);
+      spawnNPC(i, rx, ry, 25, false, false, false, false, true, 0.25, 1.3);
     } else {
       // NPC 4: Normal
-      spawnNPC(i, rx, ry, null, false, false, true);
+      spawnNPC(i, rx, ry, null, false, false, true, false, false, 1.0, 1.1);
     }
   }
 
@@ -208,7 +215,7 @@ function clearWorld() {
   player = null;
 }
 
-function spawnNPC(index, customX, customY, customMass, isDemoScripted, avoidViruses, noBoost, isOpportunist, isAlwaysBoosting) {
+function spawnNPC(index, customX, customY, customMass, isDemoScripted, avoidViruses, noBoost, isOpportunist, isAlwaysBoosting, growthEfficiency, speedMult) {
   const isSmart = isDemoScripted || isOpportunist || isAlwaysBoosting || (index < (CONFIG.npcCount * 0.5)); 
   let name;
   if (isDemoScripted) {
@@ -235,6 +242,8 @@ function spawnNPC(index, customX, customY, customMass, isDemoScripted, avoidViru
   ent.noBoost = noBoost;
   ent.isOpportunist = isOpportunist;
   ent.isAlwaysBoosting = isAlwaysBoosting;
+  ent.growthEfficiency = growthEfficiency || 1.0;
+  ent.speedMult = speedMult || 1.0;
   ent.protectionTime = customMass ? 0 : 180; 
   ent.spawnDelay = customMass ? 0 : 1000;
   ent.efficiency = Math.random() > 0.5 ? 0.67 : 1.0;
@@ -242,45 +251,54 @@ function spawnNPC(index, customX, customY, customMass, isDemoScripted, avoidViru
 
 function startGame() {
   isGameOver = false;
-  // --- RESET WORLD FOR FRESH START ---
+  isPaused = false;
+  tutorialPauseStart = 0;
   clearWorld();
   killCount = 0;
   timeScale = 1.0;
 
-  // 3. Re-spawn initial game objects
   for (let i = 0; i < CONFIG.nodeCount; i++) spawnNode();
   for (let i = 0; i < CONFIG.virusCount; i++) spawnVirus();
 
-  // 4. Start Player
   const nameInput = document.getElementById('player-name-input').value || "PLAYER";
   player = createEntity(CONFIG.worldSize / 2, CONFIG.worldSize / 2, CONFIG.initialMass, nameInput, true);
   updateLivesUI();
 
-  // 5. Initialize skill state for this match
   const equipped = progress.equippedSkill;
   const skillLevel = equipped ? (progress.skills[equipped]?.level || 1) : 0;
   skillState = createSkillState(equipped, skillLevel);
   updateInGameSkillButton();
-  
-  isGameRunning = true;
+
   startTime = Date.now();
+  isGameRunning = true;
   document.getElementById('start-menu').style.display = 'none';
   document.querySelector('.ui-overlay').style.display = 'block';
 
-  // START RARE ITEM (Delayed by 30s)
-  setTimeout(spawnRareItem, 30000); 
+  // 教學延遲 3 秒觸發
+  setTimeout(() => {
+    if (!isGameRunning) return;
+    if (!progress.tutorialIntroDone) {
+      showTutorialStep(5);
+    } else if (progress.equippedSkill === 'sprint' && !progress.tutorialSkillGameDone) {
+      showTutorialStep(4);
+    }
+  }, 3000);
+
+  // START RARE ITEM (Controlled by update loop timer)
+  rareItemSpawnTimer = 30000; 
 
   // 6. Start Spawning NPCs over time
-  let spawned = 0;
+  spawnedNPCs = 0;
   const spawnInterval = setInterval(() => {
-    if (spawned >= CONFIG.npcCount || !isGameRunning) {
+    if (spawnedNPCs >= CONFIG.npcCount || !isGameRunning) {
       clearInterval(spawnInterval);
       return;
     }
-    if (spawned === 0) {
-      for (let i = 0; i < 4; i++) spawnNPC(spawned++);
+    if (isPaused) return; // 教學暫停期間不生成 NPC
+    if (spawnedNPCs === 0) {
+      for (let i = 0; i < 4; i++) spawnNPC(spawnedNPCs++);
     } else {
-      spawnNPC(spawned++);
+      spawnNPC(spawnedNPCs++);
     }
   }, 1000);
 }
@@ -296,7 +314,10 @@ function createEntity(x, y, mass, name, isPlayer) {
   const container = new PIXI.Container();
   const graphics = new PIXI.Graphics();
   
-  // Name Label (Outside Above)
+  // 1. Body Graphics (Bottom Layer)
+  container.addChild(graphics);
+
+  // 2. Name Label (Top Layer)
   const nameLabel = new PIXI.Text({
     text: name,
     style: {
@@ -308,7 +329,7 @@ function createEntity(x, y, mass, name, isPlayer) {
   nameLabel.anchor.set(0.5, 1.2);
   container.addChild(nameLabel);
 
-  // Mass Label (Inside Center)
+  // 3. Mass Label (Top Layer)
   const massLabel = new PIXI.Text({
     text: Math.floor(mass),
     style: {
@@ -338,6 +359,7 @@ function createEntity(x, y, mass, name, isPlayer) {
     smoothRotation: 0,
     spawnDelay: 0,
     efficiency: 1.0,
+    growthEfficiency: 1.0,
     boostFactor: 0,
     tailAngle: 0,
     isSmart: false,
@@ -352,10 +374,9 @@ function createEntity(x, y, mass, name, isPlayer) {
     mask: 0x0001 
   };
 
-  // FIXED: Draw initial state immediately
   const refRadius = calculateRadius(CONFIG.initialMass);
   drawEntityBody(graphics, isPlayer, refRadius, entity);
-  container.addChild(graphics);
+  // container.addChild(graphics); // Moved to top of function for layering
 
   // Direction Indicator (Triangle)
   if (isPlayer) {
@@ -667,7 +688,17 @@ function update(delta) {
       updateCooldownUI();
     }
 
-    if (isGameRunning) handleInputs();
+    if (isGameRunning) {
+      handleInputs();
+      
+      // Update rare item spawn timer
+      if (rareItemSpawnTimer > 0) {
+        rareItemSpawnTimer -= scaledDeltaMS;
+        if (rareItemSpawnTimer <= 0) {
+          spawnRareItem();
+        }
+      }
+    }
   }
 
   // SYNC GRAPHICS & LOGIC (Always run for menu background)
@@ -899,7 +930,7 @@ function update(delta) {
       boostTextTimer = 0;
     }
 
-    if (elapsedTime > 2000 && entities.length === 1 && entities[0].isPlayer) {
+    if (spawnedNPCs >= CONFIG.npcCount && entities.length === 1 && entities[0].isPlayer) {
       winGame();
     }
   }
@@ -1114,7 +1145,8 @@ function checkCollisions(ent) {
       
       if (ent.isBoosting) addedMass *= 0.5; // Penalty for eating while boosting
       
-      ent.mass += addedMass * (ent.efficiency || 1.0);
+      const finalGrowthEff = ent.growthEfficiency !== undefined ? ent.growthEfficiency : (ent.efficiency || 1.0);
+      ent.mass += addedMass * finalGrowthEff;
       
       if (ent.isPlayer) {
         showFloatingText(node.body.position.x, node.body.position.y, `+${addedMass.toFixed(1)}`);
@@ -1293,7 +1325,7 @@ function setupInputs() {
   
   // Skill activation (replaces old boost)
   const activateSkill = () => {
-    if (isGameOver || !player || !skillState) return;
+    if (isGameOver || isPaused || isTutorialActive() || !player || !skillState) return;
     if (skillState.isDefaultBoost) {
       player.isBoosting = true;
       return;
@@ -1607,16 +1639,19 @@ function releaseFragments(x, y, totalMass, triggerer) {
 }
 
 function updateLivesUI() {
-  const heart = document.getElementById('central-heart');
-  if (!heart) return;
-  
-  heart.className = ''; // Reset
+  const h1 = document.getElementById('heart-1');
+  const h2 = document.getElementById('heart-2');
+  if (!h1 || !h2 || !player) return;
+
   if (player.lives >= 2) {
-    heart.classList.add('heart-full');
+    h1.className = 'heart-icon heart-full';
+    h2.className = 'heart-icon heart-full';
   } else if (player.lives === 1) {
-    heart.classList.add('heart-half');
+    h1.className = 'heart-icon heart-full';
+    h2.className = 'heart-icon heart-empty';
   } else {
-    heart.classList.add('heart-empty');
+    h1.className = 'heart-icon heart-empty';
+    h2.className = 'heart-icon heart-empty';
   }
 }
 
@@ -1839,13 +1874,13 @@ window.returnToMenu = () => {
     const rx = CONFIG.worldSize / 2 + (Math.random() - 0.5) * 1500;
     const ry = CONFIG.worldSize / 2 + (Math.random() - 0.5) * 1500;
     if (i === 0) {
-      spawnNPC(i, rx, ry, 700, true, false, true);
+      spawnNPC(i, rx, ry, 700, true, false, true, false, false, 1.0, 1.1);
     } else if (i === 1) {
-      spawnNPC(i, rx, ry, 500, false, true, true, true);
+      spawnNPC(i, rx, ry, 500, false, true, true, true, false, 1.0, 1.1);
     } else if (i === 2) {
-      spawnNPC(i, rx, ry, 25, false, false, false, false, true);
+      spawnNPC(i, rx, ry, 25, false, false, false, false, true, 0.25, 1.3);
     } else {
-      spawnNPC(i, rx, ry, null, false, false, true);
+      spawnNPC(i, rx, ry, null, false, false, true, false, false, 1.0, 1.1);
     }
   }
   for (let i = 0; i < CONFIG.nodeCount; i++) spawnNode();
@@ -1864,12 +1899,13 @@ window.returnToMenu = () => {
   
   // Refresh main screen info
   refreshProgressDisplay();
+  renderSkillsPage();
   loadHistory();
 };
 
 // PAUSE SYSTEM
 function togglePause() {
-  if (!isGameRunning || isGameOver) return;
+  if (!isGameRunning || isGameOver || isTutorialActive()) return;
   isPaused = !isPaused;
   const pauseMenu = document.getElementById('pause-menu');
   const uiOverlay = document.querySelector('.ui-overlay');
@@ -1928,7 +1964,7 @@ document.getElementById('pause-btn').addEventListener('click', togglePause);
 document.getElementById('p-resume-btn').addEventListener('click', togglePause);
 
 window.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') {
+  if (e.key === 'Escape' && !isTutorialActive()) {
     togglePause();
   }
 });
@@ -1985,6 +2021,7 @@ function refreshProgressDisplay() {
  * 渲染技能頁面（卡片狀態、裝備欄、技能點）
  */
 function renderSkillsPage() {
+  console.log('[Progression] Rendering Skills Page. Current Progress:', JSON.parse(JSON.stringify(progress)));
   document.getElementById('skill-points-count').textContent = progress.skillPoints;
 
   // Equipped banner
@@ -2043,10 +2080,7 @@ function renderSkillsPage() {
         unlockSkill(progress, skillId);
       } else if (action === 'equip') {
         equipSkill(progress, skillId);
-        if (tutorialStep === 3 && skillId === 'sprint') {
-          progress.tutorialDone = true;
-          showTutorialStep(0); // Hide
-        }
+        onSkillEquipped(skillId);
       } else if (action === 'unequip') {
         progress.equippedSkill = null;
       } else if (action === 'upgrade') {
@@ -2351,9 +2385,9 @@ function updateSkillEffects(delta) {
     skillState.overdriveElapsed += delta.elapsedMS;
 
     if (skillState.overdrivePhase === 'rampUp') {
-      const progress = Math.min(1, skillState.overdriveElapsed / def.rampUpDuration);
-      skillState.overdriveSpeedMult = 1.0 + progress * (def.maxSpeedMult - 1.0);
-      if (progress >= 1) {
+      const overdriveProgress = Math.min(1, skillState.overdriveElapsed / def.rampUpDuration);
+      skillState.overdriveSpeedMult = 1.0 + overdriveProgress * (def.maxSpeedMult - 1.0);
+      if (overdriveProgress >= 1) {
         skillState.overdrivePhase = 'sustain';
         skillState.overdriveElapsed = 0;
       }
@@ -2491,8 +2525,10 @@ async function showRewardScreen(isVictory) {
   const initialStartXP = getXPForCurrentLevel(initialLevel);
   const startPct = initialXP >= initialTotalXP ? 1 : (initialXP - initialStartXP) / (initialTotalXP - initialStartXP);
 
+  console.log('[Progression] Granting XP. Before:', { level: progress.level, xp: progress.xp });
   const result = grantXP(progress, xpReward);
   grantGold(progress, goldReward);
+  console.log('[Progression] Granting XP. After:', { level: progress.level, xp: progress.xp, sprint: progress.skills.sprint.unlocked });
   saveProgress(progress);
 
   const screen = document.getElementById('reward-screen');
@@ -2550,73 +2586,76 @@ async function showRewardScreen(isVictory) {
   const spRow = document.getElementById(`reward-sp-row`);
   const spValue = document.getElementById(`reward-sp`);
 
-  barFill.style.transition = 'none';
-  barFill.style.width = `${Math.max(0, Math.min(100, startPct * 100))}%`;
-  levelLabel.textContent = `Lv.${initialLevel}`;
-  xpValue.textContent = `+0 XP`;
-  goldValue.textContent = `+0`;
-  killsValue.textContent = `×0`;
-  banner.style.display = 'none';
-  banner.classList.remove('animate');
+  // 1. XP Bar Initialization
+  barFill.style.width = `${startPct * 100}%`;
+  xpValue.textContent = '+0 XP';
+  goldValue.textContent = '+0';
   spRow.style.display = 'none';
+  banner.classList.remove('active');
+  document.getElementById('reward-actions').classList.remove('show');
 
-  await new Promise(r => setTimeout(r, 800)); // Initial pause for screen transition
+  // 2. Parallel Staggered Animations
+  const anims = [];
 
-  // 1. XP Number
-  await animateNumber(xpValue, 0, xpReward, 800, v => `+${v} XP`);
-  await new Promise(r => setTimeout(r, 200));
+  // XP Counter & Bar
+  anims.push((async () => {
+    await animateNumber(xpValue, 0, xpReward, 1200, v => `+${v} XP`);
+  })());
 
-  // 2. XP Bar & Levels
-  if (result.levelsGained > 0) {
-    // Fill to 100%
-    barFill.style.transition = 'width 0.6s ease-in';
-    barFill.style.width = '100%';
-    await new Promise(r => setTimeout(r, 650));
-    
-    // Level Up Pop
-    banner.style.display = 'block';
-    banner.classList.add('animate');
-    levelLabel.textContent = `Lv.${progress.level}`;
-    levelLabel.style.transition = 'transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
-    levelLabel.style.transform = 'scale(1.5)';
-    setTimeout(() => levelLabel.style.transform = 'scale(1)', 300);
+  anims.push((async () => {
+    await new Promise(r => setTimeout(r, 200)); // Slight delay
+    if (result.levelsGained > 0) {
+      // Multiple level ups?
+      for (let i = 0; i < result.levelsGained; i++) {
+        barFill.style.transition = 'width 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)';
+        barFill.style.width = '100%';
+        await new Promise(r => setTimeout(r, 850));
+        barFill.style.transition = 'none';
+        barFill.style.width = '0%';
+        void barFill.offsetWidth; // Force reflow
+      }
+      barFill.style.transition = 'width 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)';
+      barFill.style.width = `${getLevelProgress(progress) * 100}%`;
+      levelLabel.textContent = `Lv.${progress.level}`;
+      banner.classList.add('active');
+    } else {
+      barFill.style.transition = 'width 1.2s cubic-bezier(0.34, 1.56, 0.64, 1)';
+      barFill.style.width = `${getLevelProgress(progress) * 100}%`;
+    }
+  })());
+
+  // Gold
+  anims.push((async () => {
     await new Promise(r => setTimeout(r, 400));
+    await animateNumber(goldValue, 0, goldReward, 1000, v => `+${v}`);
+  })());
 
-    // Reset bar and fill to final pct
-    barFill.style.transition = 'none';
-    barFill.style.width = '0%';
-    barFill.offsetHeight; // trigger reflow
-    barFill.style.transition = 'width 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)';
-    barFill.style.width = `${getLevelProgress(progress) * 100}%`;
-    await new Promise(r => setTimeout(r, 800));
-  } else {
-    barFill.style.transition = 'width 1s cubic-bezier(0.34, 1.56, 0.64, 1)';
-    barFill.style.width = `${getLevelProgress(progress) * 100}%`;
-    await new Promise(r => setTimeout(r, 1000));
-  }
-
-  // 3. Skill Points (if gained)
+  // Skill Points
   if (result.skillPointsGained > 0) {
-    spRow.style.display = 'flex';
-    await animateNumber(spValue, 0, result.skillPointsGained, 500, v => `+${v}`);
-    await new Promise(r => setTimeout(r, 300));
+    anims.push((async () => {
+      await new Promise(r => setTimeout(r, 600));
+      spRow.style.display = 'flex';
+      await animateNumber(spValue, 0, result.skillPointsGained, 800, v => `+${v}`);
+    })());
   }
 
-  // 4. Gold
-  await animateNumber(goldValue, 0, goldReward, 800, v => `+${v}`);
-  await new Promise(r => setTimeout(r, 200));
-  
-  // 5. Kills
-  killsValue.textContent = `×${killCount}`;
-  killsValue.classList.add('count-up');
+  // 3. Wait for all animations to settle
+  await Promise.all(anims);
+  await new Promise(r => setTimeout(r, 500));
 
-  // 6. Confetti if victory
+  // 4. Show actions & Trigger tutorial
+  document.getElementById('reward-actions').classList.add('show');
   if (isVictory) triggerConfetti();
 
-  // 7. Tutorial Trigger (只有在剛升到 2 級或以上且未完成教學時觸發)
   if (progress.level >= 2 && !progress.tutorialDone) {
-    console.log('[Tutorial] Triggering step 1. Level:', progress.level);
-    setTimeout(() => showTutorialStep(1), 2500);
+    console.log('[Tutorial] Animation complete. Waiting 1s to trigger guide.');
+    setTimeout(() => {
+      // Re-verify we are still on reward screen
+      const rs = document.getElementById('reward-screen');
+      if (rs && rs.style.display !== 'none') {
+        showTutorialStep(1);
+      }
+    }, 1000);
   }
 }
 
@@ -2654,92 +2693,54 @@ function triggerConfetti() {
 }
 
 // ==========================================================
-// TUTORIAL SYSTEM
+// TUTORIAL PAUSE/RESUME
 // ==========================================================
 
-let tutorialStep = 0;
-
-function showTutorialStep(step) {
-  const overlay = document.getElementById('tutorial-overlay');
-  const text = document.getElementById('tutorial-text');
-  const highlight = document.getElementById('tutorial-highlight');
-  const box = document.querySelector('.tutorial-box');
-  const nextBtn = document.getElementById('tutorial-next');
-  
-  if (step === 0) {
-    overlay.style.display = 'none';
-    return;
-  }
-
-  overlay.style.display = 'flex';
-  tutorialStep = step;
-
-  const steps = {
-    1: { 
-      text: "恭喜升到 2 級！你獲得了第一個技能點。點擊「返回主畫面」來查看如何使用它。",
-      target: () => document.querySelector('.end-game-btn.secondary'),
-      pos: 'top'
-    },
-    2: {
-      text: "點擊「技能」分頁來進入技能管理頁面。",
-      target: () => document.querySelector('.tab-btn[data-tab="skills"]'),
-      pos: 'bottom'
-    },
-    3: {
-      text: "每升一級可以獲得 1 個技能點。目前你已經自動解鎖了「衝刺」技能，點擊「裝備」來啟用它！",
-      target: () => document.querySelector('.skill-card[data-skill="sprint"] .btn-equip'),
-      pos: 'top'
-    }
-  };
-
-  const s = steps[step];
-  text.textContent = s.text;
-  nextBtn.style.display = 'none'; // 通常靠點擊目標來觸發下一步，但這裡為了保險可以加一個
-  
-  const targetEl = s.target();
-  if (targetEl) {
-    const rect = targetEl.getBoundingClientRect();
-    highlight.style.display = 'block';
-    highlight.style.top = `${rect.top - 5}px`;
-    highlight.style.left = `${rect.left - 5}px`;
-    highlight.style.width = `${rect.width + 10}px`;
-    highlight.style.height = `${rect.height + 10}px`;
-    
-    // Position box
-    if (s.pos === 'bottom') {
-      box.style.top = `${rect.bottom + 20}px`;
-      box.style.bottom = 'auto';
-    } else {
-      box.style.bottom = `${window.innerHeight - rect.top + 20}px`;
-      box.style.top = 'auto';
-    }
-    box.style.left = `${Math.max(20, Math.min(window.innerWidth - 300, rect.left + rect.width/2 - 140))}px`;
-    box.style.transform = 'none';
-  } else {
-    highlight.style.display = 'none';
-    box.style.top = '50%';
-    box.style.left = '50%';
-    box.style.transform = 'translate(-50%, -50%)';
-  }
+/** 暫停遊戲並記錄暫停起始時間（用於計時補償） */
+function pauseForTutorial() {
+  isPaused = true;
+  tutorialPauseStart = Date.now();
 }
 
-// Hook into actions
-const originalReturnToMenu = window.returnToMenu;
-window.returnToMenu = () => {
-  originalReturnToMenu();
-  if (progress.level >= 2 && !progress.tutorialDone) {
-    setTimeout(() => showTutorialStep(2), 500);
+/** 恢復遊戲並補償暫停期間的計時偏差 */
+function resumeFromTutorial() {
+  if (tutorialPauseStart) {
+    startTime += Date.now() - tutorialPauseStart;
+    tutorialPauseStart = 0;
   }
-};
+  isPaused = false;
+}
 
-// Hook into Tab switching for tutorial
-document.querySelectorAll('.tab-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    if (tutorialStep === 2 && btn.dataset.tab === 'skills') {
-      setTimeout(() => showTutorialStep(3), 300);
-    }
-  });
+// ==========================================================
+// INITIALIZATION
+// ==========================================================
+
+initTutorial({
+  progress,
+  saveProgress,
+  pauseForTutorial,
+  resumeFromTutorial,
+  isGameRunning: () => isGameRunning,
+  getPlayer: () => player,
+  calculateRadius,
 });
 
 init();
+setupTutorialHooks();
+window.progress = progress;
+
+// DEBUG HELPERS
+window.debugWin = () => {
+  elapsedTime = 60000;
+  killCount = 10;
+  isGameRunning = true;
+  winGame();
+};
+
+window.debugLevelUp = () => {
+  grantXP(progress, 150);
+  saveProgress(progress);
+  refreshProgressDisplay();
+  renderSkillsPage();
+};
 
