@@ -832,7 +832,13 @@ function update(delta) {
         const isDefaultBoost = skillState.isDefaultBoost && ent.isBoosting;
         const isOverdrive = skillState.skillId === 'overdrive' && skillState.isActive;
         const isTripleDash = skillState.skillId === 'tripleDash' && skillState.isActive;
-        if (!isDefaultBoost && !isOverdrive && !isTripleDash) {
+        const isFlashStep = skillState.skillId === 'flashStep' && (skillState.isChanneling || skillState.isActive);
+        const isSprint = skillState.skillId === 'sprint' && (ent.sprintVisualTimer > 0);
+        
+        if (isDefaultBoost || isOverdrive || isTripleDash || isFlashStep || isSprint) {
+          ent.isBoosting = true;
+          if (ent.sprintVisualTimer > 0) ent.sprintVisualTimer -= delta.elapsedMS;
+        } else {
           ent.isBoosting = false;
         }
       }
@@ -948,7 +954,7 @@ function update(delta) {
         let diff = targetAngle - ent.smoothRotation;
         while (diff < -Math.PI) diff += Math.PI * 2;
         while (diff > Math.PI) diff -= Math.PI * 2;
-        ent.smoothRotation += diff * 0.2;
+        ent.smoothRotation += diff * 0.45;
         ent.dirIndicator.rotation = ent.smoothRotation;
         ent.dirIndicator.scale.set(inverseZoom);
         const deformedR = getDeformedRadius(ent, ent.smoothRotation, radius);
@@ -2571,6 +2577,7 @@ function executeSprint() {
     angle = Math.atan2(diff.y, diff.x);
   }
 
+  player.sprintVisualTimer = 200; // 200ms 的變形效果
   const force = def.dashForce;
   Matter.Body.setVelocity(player.body, {
     x: Math.cos(angle) * force,
