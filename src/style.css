@@ -1581,6 +1581,31 @@ body.skill-channeling #app {
   border-bottom-left-radius: 4px;
 }
 
+.xp-text, .m-xp-text, .reward-xp-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 0.7rem;
+  font-weight: 900;
+  color: #FFF;
+  text-shadow: 0 0 5px rgba(0,0,0,0.8);
+  pointer-events: none;
+  z-index: 5;
+  letter-spacing: 1px;
+}
+
+.m-xp-text {
+  top: auto;
+  bottom: -15px;
+  font-size: 0.6rem;
+  opacity: 0.8;
+}
+
+.reward-xp-text {
+  font-size: 0.9rem;
+}
+
 /* ==========================================================
    PROGRESSION SYSTEM STYLES
    ========================================================== */

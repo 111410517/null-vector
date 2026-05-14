@@ -2356,6 +2356,13 @@ function refreshProgressDisplay() {
   const pct = getLevelProgress(progress);
   const levelLabel = document.getElementById('level-label');
   
+  // Calculate raw XP for display
+  const startXP = getXPForCurrentLevel(progress.level);
+  const nextLevelXP = getXPForNextLevel(progress.level);
+  const curXP = Math.floor(progress.xp - startXP);
+  const reqXP = Math.floor(nextLevelXP - startXP);
+  const xpStr = progress.level >= MAX_LEVEL ? 'MAX' : `${curXP} / ${reqXP}`;
+
   if (progress.level >= MAX_LEVEL) {
     levelLabel.textContent = 'MAX';
     levelLabel.classList.add('is-max');
@@ -2368,16 +2375,22 @@ function refreshProgressDisplay() {
     document.getElementById('xp-percent').textContent = `${Math.round(pct * 100)}%`;
   }
   
+  // Update Numerical XP Text
+  const xpText = document.getElementById('xp-text');
+  if (xpText) xpText.textContent = xpStr;
+  
   document.getElementById('gold-amount').textContent = progress.gold;
   
   // [NEW] Sync Mobile Stats Corner
   const mLevel = document.getElementById('m-level');
   const mGold = document.getElementById('m-gold');
   const mXpFill = document.getElementById('m-xp-fill');
+  const mXpText = document.getElementById('m-xp-text');
   
   if (mLevel) mLevel.textContent = progress.level >= MAX_LEVEL ? 'MAX' : progress.level;
   if (mGold) mGold.textContent = progress.gold;
   if (mXpFill) mXpFill.style.width = `${Math.round(pct * 100)}%`;
+  if (mXpText) mXpText.textContent = xpStr;
 
   // Sync skin page gold
   const skinGold = document.getElementById('skin-gold-amount');
@@ -2545,7 +2558,16 @@ function executeSprint() {
     x: Math.cos(angle) * force,
     y: Math.sin(angle) * force
   });
-  screenShake = Math.max(screenShake, 8);
+  
+  // VFX: Trail
+  const radius = calculateRadius(player.mass);
+  for(let i=0; i<5; i++) {
+    setTimeout(() => {
+      if(player) createTrail(player.body.position.x, player.body.position.y, radius, 0xFFFFFF, 0.4, 400);
+    }, i * 40);
+  }
+
+  screenShake = Math.max(screenShake, 15);
   startCooldown(skillState, buff);
 }
 
@@ -2555,7 +2577,11 @@ function startOverdrive() {
   skillState.overdrivePhase = 'rampUp';
   skillState.overdriveElapsed = 0;
   skillState.overdriveSpeedMult = 1.01;
-  player.isBoosting = true; // Trigger visual deformation
+  player.isBoosting = true; 
+  
+  // VFX: Burst
+  triggerShockwave(player.body.position.x, player.body.position.y, 0x00FFBB);
+  screenShake = Math.max(screenShake, 25);
 }
 
 function endOverdrive() {
@@ -2603,7 +2629,13 @@ function performSingleDash(cost) {
     x: Math.cos(angle) * force,
     y: Math.sin(angle) * force
   });
-  screenShake = Math.max(screenShake, 12); // Increased from 6 for better feel
+
+  // VFX: Ghostly dash
+  const radius = calculateRadius(player.mass);
+  createTrail(player.body.position.x, player.body.position.y, radius, 0x00C8FF, 0.6, 500);
+  triggerShockwave(player.body.position.x, player.body.position.y, 0x00C8FF);
+
+  screenShake = Math.max(screenShake, 12); 
   skillState.tripleDashRemaining--;
   
   if (skillState.tripleDashRemaining <= 0) {
@@ -3047,11 +3079,27 @@ async function showRewardScreen(isVictory) {
       barFill.style.transition = 'width 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)';
       barFill.style.width = `${getLevelProgress(progress) * 100}%`;
       levelLabel.textContent = `Lv.${progress.level}`;
+      
+      // Update Numerical XP during reward
+      const rXpText = document.getElementById('reward-xp-text');
+      if (rXpText) {
+        const sXP = getXPForCurrentLevel(progress.level);
+        const nXP = getXPForNextLevel(progress.level);
+        rXpText.textContent = progress.level >= MAX_LEVEL ? 'MAX' : `${Math.floor(progress.xp - sXP)} / ${Math.floor(nXP - sXP)}`;
+      }
+
       banner.style.display = 'block';
       banner.classList.add('animate');
     } else {
       barFill.style.transition = 'width 1.2s cubic-bezier(0.34, 1.56, 0.64, 1)';
       barFill.style.width = `${getLevelProgress(progress) * 100}%`;
+      
+      const rXpText = document.getElementById('reward-xp-text');
+      if (rXpText) {
+        const sXP = getXPForCurrentLevel(progress.level);
+        const nXP = getXPForNextLevel(progress.level);
+        rXpText.textContent = progress.level >= MAX_LEVEL ? 'MAX' : `${Math.floor(progress.xp - sXP)} / ${Math.floor(nXP - sXP)}`;
+      }
     }
   })());
 
@@ -3180,3 +3228,40 @@ window.debugLevelUp = () => {
   renderSkillsPage();
 };
 
+function createTrail(x, y, radius, color, alpha, duration) {
+  const trail = new PIXI.Graphics();
+  trail.circle(0, 0, radius);
+  trail.fill({ color, alpha });
+  trail.position.set(x, y);
+  vfxLayer.addChild(trail);
+  
+  let elapsed = 0;
+  const anim = (d) => {
+    elapsed += d.elapsedMS;
+    const p = Math.min(1, elapsed / duration);
+    trail.alpha = alpha * (1 - p);
+    trail.scale.set(1 - 0.3 * p);
+    if (p >= 1) {
+      vfxLayer.removeChild(trail);
+      app.ticker.remove(anim);
+    }
+  };
+  app.ticker.add(anim);
+}
+
+function triggerShockwave(x, y, color) {
+  const ring = new PIXI.Graphics();
+  vfxLayer.addChild(ring);
+  let r = 5;
+  const anim = (d) => {
+    r += 18 * d.deltaTime;
+    ring.clear();
+    ring.circle(x, y, r);
+    ring.stroke({ width: 4, color, alpha: 1 - r/180 });
+    if (r > 180) {
+      vfxLayer.removeChild(ring);
+      app.ticker.remove(anim);
+    }
+  };
+  app.ticker.add(anim);
+}
