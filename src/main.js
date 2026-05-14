@@ -1294,7 +1294,8 @@ function updateCombo() {
   if (comboCount > 1) {
     const buff = getComboBuff();
     const reductionPct = Math.round((1 - buff) * 100);
-    const buffType = (skillState && !skillState.isDefaultBoost) ? 'CD' : 'Cost';
+    const buffType = (skillState && !skillState.isDefaultBoost) ? 
+      (getSkillDef(skillState.skillId).energyRequired ? 'ENG' : 'CD') : 'Cost';
 
     overlay.classList.add('active');
     textContainer.classList.add('active');
@@ -2612,8 +2613,8 @@ function startOverdrive() {
   skillState.overdriveSpeedMult = 1.01;
   player.isBoosting = true; 
   
-  // 立即進入「充能模式」
-  startCooldown(skillState);
+  // 立即進入「充能模式」，並套用 Combo 帶來的能量減免
+  startCooldown(skillState, getComboBuff());
   // 強制重新標記為活躍，因為 startCooldown 會將其設為 false
   skillState.isActive = true;
 }
@@ -2891,7 +2892,7 @@ function updateSkillEffects(delta) {
       performSingleDash(costPerDash);
       if (skillState.tripleDashRemaining <= 0) {
         skillState.isActive = false;
-        startCooldown(skillState);
+        startCooldown(skillState, getComboBuff());
       }
     }
   }
