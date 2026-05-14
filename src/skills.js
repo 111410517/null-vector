@@ -37,8 +37,8 @@ export const SKILL_DEFS = {
     massCost: [0, 0, 0],
     rampUpDuration: 2000,           // 增加至 2s，使加速過程更平滑
     sustainDuration: [1500, 1500, 1500], // 縮短至 1.5s，平衡高極速表現
-    maxSpeedMult: 4.5,
-    energyRequired: [1000, 900, 800], // 充能所需能量 (與質量掛鉤)
+    maxSpeedMult: 3.8,
+    energyRequired: [300, 250, 200], // 充能所需能量 (大幅下修，使發動更頻繁)
   },
 
   tripleDash: {
