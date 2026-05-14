@@ -2828,6 +2828,7 @@ function startFlashStepChannel() {
 
   // Add visual effect class
   document.body.classList.add('skill-channeling');
+  if (!isTouchDevice) document.body.classList.add('hide-cursor');
 
   // Create indicator circle and line
   flashStepIndicator = new PIXI.Graphics();
@@ -2841,6 +2842,7 @@ async function executeFlashStep() {
   skillState.isChanneling = false;
   timeScale = 1.0;
   document.body.classList.remove('skill-channeling');
+  document.body.classList.remove('hide-cursor');
 
   const def = SKILL_DEFS.flashStep;
   const cost = getSkillParam(def, 'massCost', skillState.level);
@@ -3083,6 +3085,14 @@ function updateSkillEffects(delta) {
     flashStepIndicator.clear();
     flashStepIndicator.circle(tx, ty, radius);
     flashStepIndicator.stroke({ width: 3, color: 0xFFFFFF, alpha: 0.7 });
+
+    // --- [NEW] Tactical Crosshair inside indicator ---
+    const crossSize = radius * 0.4;
+    flashStepIndicator.moveTo(tx - crossSize, ty);
+    flashStepIndicator.lineTo(tx + crossSize, ty);
+    flashStepIndicator.moveTo(tx, ty - crossSize);
+    flashStepIndicator.lineTo(tx, ty + crossSize);
+    flashStepIndicator.stroke({ width: 2, color: 0xFFFFFF, alpha: 0.5 });
 
     // Draw dashed line
     flashStepLine.clear();

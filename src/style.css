@@ -645,6 +645,11 @@ body.skill-channeling #app {
   transition: filter 0.4s ease;
 }
 
+/* --- Cursor Hiding for Tactical Aiming --- */
+body.hide-cursor, body.hide-cursor * {
+  cursor: none !important;
+}
+
 
 
 /* Menus */
