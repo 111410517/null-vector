@@ -2054,93 +2054,148 @@ body.skill-channeling #app {
   #orientation-warning { display: flex; }
 }
 
-/* --- Landscape Mobile Optimization (Phones & Small Tablets) --- */
+/* --- Landscape Mobile Optimization (Extreme Polish: No Scroll, No Wrap, No Overflow) --- */
 @media (orientation: landscape) and (max-height: 600px) {
   #orientation-warning { display: none !important; }
   
   #start-menu {
-    overflow-y: auto;
+    overflow: hidden !important; /* 嚴格禁止溢出與滾動 */
     align-items: center;
-    padding: env(safe-area-inset-top, 10px) env(safe-area-inset-right, 20px) env(safe-area-inset-bottom, 10px) env(safe-area-inset-left, 20px);
+    padding: env(safe-area-inset-top, 5px) env(safe-area-inset-right, 15px) env(safe-area-inset-bottom, 5px) env(safe-area-inset-left, 15px);
   }
+
+  .menu-container {
+    flex-direction: row !important;
+    height: 96vh;
+    max-height: 380px;
+    gap: 10px !important;
+    align-items: stretch !important;
+    padding: 0 !important;
+    width: 100% !important;
+  }
+
+  /* 三面板並排，精確分配寬度 */
+  .secondary-panel, .main-panel, .guide-panel {
+    display: flex !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    padding: 12px 15px !important;
+    border-radius: 20px !important;
+    overflow: hidden !important; /* 禁止面板內滾動 */
+  }
+
+  .secondary-panel { flex: 1 !important; }
+  .main-panel { flex: 1.4 !important; justify-content: center; }
+  .guide-panel { flex: 0.9 !important; gap: 10px !important; }
+
+  /* 標題與副標題：縮小以防止擠壓 */
+  .menu-title { font-size: 1.6rem !important; letter-spacing: 4px !important; margin-bottom: 2px !important; white-space: nowrap; }
+  .menu-subtitle { font-size: 0.55rem !important; margin-bottom: 10px !important; letter-spacing: 3px !important; white-space: nowrap; }
+  
+  .progress-bar-row { margin-bottom: 10px !important; padding: 0 15px; gap: 10px !important; }
+  .level-badge { font-size: 0.7rem !important; padding: 3px 6px !important; }
+  .gold-display { font-size: 0.75rem !important; }
+  
+  /* 輸入框與按鈕：縮短長度並居中 */
+  #player-name-input { 
+    width: 200px !important;
+    margin: 0 auto 10px auto !important;
+    padding: 8px !important; 
+    font-size: 0.8rem !important; 
+    border-radius: 10px;
+  }
+  .primary-btn, .secondary-btn { 
+    width: 180px !important; 
+    margin: 0 auto 6px auto !important;
+    padding: 10px !important; 
+    font-size: 0.8rem !important; 
+    border-radius: 10px !important; 
+  }
+  
+  /* 次要面板 (Tabs) 優化 */
+  .tab-bar { gap: 6px !important; margin-bottom: 8px !important; padding-bottom: 8px !important; }
+  .tab-btn { width: 32px !important; height: 32px !important; padding: 6px !important; }
+  
+  .secondary-panel .tab-page { padding-top: 5px !important; }
+  .history-item { padding: 8px 12px !important; border-radius: 12px !important; margin-bottom: 5px; }
+  .history-time { font-size: 0.9rem !important; }
+  .history-status { font-size: 0.6rem !important; }
+
+  .skill-grid { grid-template-columns: 1fr 1fr; gap: 8px !important; }
+  .skill-card { padding: 8px !important; border-radius: 12px !important; }
+  .skill-card-icon { font-size: 0.9rem !important; margin-bottom: 2px !important; }
+  .skill-card-name { font-size: 0.7rem !important; }
+  .skill-card-desc { display: none; } 
+
+  /* 指南面板 (Guide) 極致壓縮 */
+  .guide-section { gap: 8px !important; }
+  .guide-section h3 { font-size: 0.6rem !important; margin-bottom: 6px !important; }
+  .guide-item { gap: 10px !important; margin-bottom: 8px !important; }
+  .icon-box { width: 32px !important; height: 32px !important; border-radius: 8px !important; }
+  .guide-text { font-size: 0.65rem !important; line-height: 1.2 !important; }
 
   /* --- In-Game UI Optimization --- */
   .ui-overlay {
-    padding: env(safe-area-inset-top, 20px) env(safe-area-inset-right, 25px) env(safe-area-inset-bottom, 20px) env(safe-area-inset-left, 25px);
+    padding: env(safe-area-inset-top, 15px) env(safe-area-inset-right, 20px) env(safe-area-inset-bottom, 15px) env(safe-area-inset-left, 20px);
   }
 
   .top-left { 
-    top: env(safe-area-inset-top, 20px) !important; 
-    left: env(safe-area-inset-left, 20px) !important; 
-    gap: 10px !important;
+    top: env(safe-area-inset-top, 15px) !important; 
+    left: env(safe-area-inset-left, 15px) !important; 
+    gap: 8px !important;
   }
-  #minimap-container { width: 100px !important; height: 100px !important; }
-  .pause-btn { width: 36px !important; height: 36px !important; }
+  #minimap-container { width: 90px !important; height: 90px !important; }
+  .pause-btn { width: 32px !important; height: 32px !important; }
 
   .leaderboard { 
-    top: env(safe-area-inset-top, 20px) !important; 
-    right: env(safe-area-inset-right, 20px) !important; 
-    width: 180px !important; 
-    padding: 12px !important; 
-    border-radius: 16px !important;
-    background: rgba(0, 0, 0, 0.4) !important; /* 加深背景增加對比度 */
-  }
-  .leaderboard h2 { font-size: 0.65rem !important; margin-bottom: 8px !important; padding-bottom: 5px !important; }
-  .leaderboard-item { 
-    padding: 5px 10px !important; 
-    font-size: 0.65rem !important; 
-    margin-bottom: 4px !important;
-    border-radius: 6px !important;
-  }
-  .leaderboard-item .rank { width: 15px !important; }
-  .survival-stats { margin-top: 8px !important; font-size: 0.7rem !important; }
-
-  .game-timer { 
     top: env(safe-area-inset-top, 15px) !important; 
-    font-size: 1.1rem !important; 
-    letter-spacing: 3px !important; 
+    right: env(safe-area-inset-right, 15px) !important; 
+    width: 160px !important; 
+    padding: 10px !important; 
   }
-  .central-heart-container { margin: 0 10px !important; gap: 8px !important; }
-  .heart-icon { width: 18px !important; height: 18px !important; }
+  .leaderboard h2 { font-size: 0.6rem !important; margin-bottom: 6px !important; }
+  .leaderboard-item { padding: 4px 8px !important; font-size: 0.6rem !important; }
+
+  .game-timer { top: env(safe-area-inset-top, 12px) !important; font-size: 0.9rem !important; }
   
   .controls-ui { 
-    height: 140px !important; 
-    padding: 0 env(safe-area-inset-right, 40px) env(safe-area-inset-bottom, 20px) env(safe-area-inset-left, 40px) !important; 
+    height: 120px !important; 
+    padding: 0 env(safe-area-inset-right, 30px) env(safe-area-inset-bottom, 15px) env(safe-area-inset-left, 30px) !important; 
   }
-  .joystick-zone, .skill-button-zone { 
-    width: 100px !important; 
-    height: 100px !important; 
-  }
-  .joystick-base { width: 90px !important; height: 90px !important; }
-  .skill-btn { width: 90px !important; height: 90px !important; }
-  .skill-name { font-size: 0.85rem !important; }
-  .joystick-thumb { width: 45px !important; height: 45px !important; }
+  .joystick-zone, .skill-button-zone { width: 80px !important; height: 80px !important; }
+  .joystick-base, .skill-btn { width: 70px !important; height: 70px !important; }
+  .skill-name { font-size: 0.75rem !important; }
   
-  /* --- Reward Screen Horizontal Layout --- */
+  /* --- Reward Screen Horizontal Optimization --- */
   .reward-content {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: 40px;
-    max-width: 90vw;
-    height: 80vh;
-    padding: 20px !important;
-    text-align: left;
+    flex-direction: row !important;
+    justify-content: center;
+    gap: 30px !important;
+    max-width: 95vw !important;
+    height: 90vh !important;
+    padding: 15px !important;
   }
-  .reward-title { font-size: 2.5rem !important; margin-bottom: 5px !important; text-align: left; }
-  .reward-subtitle { font-size: 0.8rem !important; margin-bottom: 20px !important; text-align: left; }
-  .reward-panel { flex: 1.2; margin: 0 !important; }
-  .end-game-actions { flex: 0.8; margin-top: 0 !important; gap: 12px !important; }
-  .end-game-btn { width: 100% !important; padding: 15px !important; font-size: 0.85rem !important; margin-top: 0 !important; }
-  .reward-row { padding: 8px 0 !important; }
-  .reward-value { font-size: 1rem !important; }
+  .reward-title { font-size: 2rem !important; margin-bottom: 0 !important; }
+  .reward-subtitle { font-size: 0.7rem !important; margin-bottom: 15px !important; }
+  .reward-panel { flex: 1; margin: 0 !important; gap: 5px !important; }
+  .reward-row { padding: 4px 0 !important; border-bottom: 1px solid rgba(255,255,255,0.05); }
+  .reward-label { font-size: 0.65rem !important; }
+  .reward-value { font-size: 0.9rem !important; }
 
-  /* 限制排行榜高度，防止遮擋按鈕 */
-  #leaderboard-list {
-    max-height: 120px;
-    overflow-y: auto;
+  .end-game-actions { flex: 0.7; gap: 8px !important; margin-top: 0 !important; }
+  .end-game-btn { 
+    width: 160px !important; 
+    padding: 12px !important; 
+    font-size: 0.8rem !important; 
+    border-radius: 30px !important; 
+    margin: 0 auto !important;
   }
-  #leaderboard-list::-webkit-scrollbar { width: 2px; }
+
+  /* 限制排行榜高度，保持小尺寸 */
+  #leaderboard-list {
+    max-height: 100px;
+    overflow: hidden; /* 配合無內滾動 */
+  }
 }
 
 @media (max-width: 1200px) and (orientation: portrait) {
