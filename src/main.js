@@ -470,7 +470,7 @@ function createEntity(x, y, mass, name, isPlayer) {
     bolt.fill(0xFFFFFF);
     bolt.scale.set(0.8);
     bolt.x = -32; // Offset to the left of text
-    bolt.y = -8;
+    bolt.y = -7;
     speedGroup.addChild(bolt);
 
     const speedIndicator = new PIXI.Text({
