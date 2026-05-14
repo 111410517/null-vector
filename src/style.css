@@ -1912,46 +1912,194 @@ body.skill-channeling #app {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 12px;
+  max-height: 420px;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .skin-card {
-  padding: 18px;
+  padding: 16px 12px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 16px;
   text-align: center;
   transition: all 0.3s;
+  cursor: pointer;
+  position: relative;
 }
 
-.skin-card.active {
+.skin-card:hover {
+  background: rgba(255, 255, 255, 0.06);
+  transform: translateY(-3px);
+}
+
+.skin-card.equipped {
   border-color: #FFFFFF;
   background: rgba(255, 255, 255, 0.08);
 }
+
+/* Rarity border glow */
+.skin-card.rarity-common  { border-color: rgba(136, 136, 136, 0.3); }
+.skin-card.rarity-fine    { border-color: rgba(0, 255, 187, 0.3); }
+.skin-card.rarity-rare    { border-color: rgba(68, 136, 255, 0.3); }
+.skin-card.rarity-epic    { border-color: rgba(255, 215, 0, 0.3); }
+.skin-card.rarity-legendary {
+  border-color: rgba(255, 0, 255, 0.3);
+  animation: legendaryShimmer 3s ease-in-out infinite alternate;
+}
+
+@keyframes legendaryShimmer {
+  0%   { border-color: rgba(255, 0, 255, 0.3); box-shadow: 0 0 10px rgba(255, 0, 255, 0.1); }
+  33%  { border-color: rgba(0, 255, 255, 0.3); box-shadow: 0 0 10px rgba(0, 255, 255, 0.1); }
+  66%  { border-color: rgba(255, 215, 0, 0.3); box-shadow: 0 0 10px rgba(255, 215, 0, 0.1); }
+  100% { border-color: rgba(255, 0, 255, 0.3); box-shadow: 0 0 10px rgba(255, 0, 255, 0.1); }
+}
+
+.skin-card.rarity-epic:hover { box-shadow: 0 0 20px rgba(255, 215, 0, 0.15); }
+.skin-card.rarity-rare:hover { box-shadow: 0 0 20px rgba(68, 136, 255, 0.15); }
+.skin-card.rarity-fine:hover { box-shadow: 0 0 20px rgba(0, 255, 187, 0.15); }
+
+.skin-card.locked { opacity: 0.5; }
+.skin-card.locked:hover { opacity: 0.7; }
 
 .skin-preview {
   width: 50px;
   height: 50px;
   border-radius: 50%;
-  margin: 0 auto 10px;
+  margin: 0 auto 8px;
+  position: relative;
 }
 
-.skin-preview.default-skin {
+/* Individual skin preview styles */
+.skin-preview.skin-default { background: #FFFFFF; box-shadow: 0 0 15px rgba(255,255,255,0.3); }
+.skin-preview.skin-nerd { background: #FFFFFF; box-shadow: 0 0 15px rgba(255,255,255,0.3); }
+.skin-preview.skin-nerd::after {
+  content: '🤓';
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 24px;
+}
+.skin-preview.skin-static {
+  background: repeating-conic-gradient(#CCC 0% 25%, #999 0% 50%) 0 0 / 6px 6px;
+  animation: staticNoise 0.2s steps(4) infinite;
+}
+@keyframes staticNoise {
+  to { background-position: 100px 50px; }
+}
+.skin-preview.skin-gridline {
+  background: transparent;
+  border: 2px solid #FFFFFF;
+  box-shadow: 0 0 10px rgba(255,255,255,0.2);
+}
+.skin-preview.skin-mint {
   background: #FFFFFF;
-  box-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
+  box-shadow: 0 0 15px rgba(0,255,187,0.4), inset 0 0 10px rgba(0,255,187,0.2);
+}
+.skin-preview.skin-halftone {
+  background: radial-gradient(circle, #000 2px, transparent 2px) 0 0 / 8px 8px,
+              radial-gradient(circle, #000 1.5px, transparent 1.5px) 4px 4px / 8px 8px,
+              #FFFFFF;
+}
+.skin-preview.skin-obsidian {
+  background: #111111;
+  border: 2px solid #FFFFFF;
+  box-shadow: 0 0 15px rgba(0,0,0,0.8), 0 0 5px rgba(255,255,255,0.2);
+}
+.skin-preview.skin-hacker {
+  background: #0A0A0A;
+  box-shadow: 0 0 15px rgba(0,255,136,0.3);
+  border: 1px solid rgba(0,255,136,0.3);
+}
+.skin-preview.skin-aureate {
+  background: linear-gradient(135deg, #FFD700, #FFA500, #FFD700);
+  box-shadow: 0 0 20px rgba(255,215,0,0.4);
+}
+.skin-preview.skin-nullcore {
+  background: radial-gradient(circle at center, #000000 20%, #DDDDDD 60%, #FFFFFF 100%);
+  box-shadow: 0 0 15px rgba(255,255,255,0.3);
+}
+.skin-preview.skin-iridescent {
+  background: conic-gradient(from 0deg, #ff0000, #ff8800, #ffff00, #00ff00, #0088ff, #8800ff, #ff0088, #ff0000);
+  animation: iridescentRotate 4s linear infinite;
+  box-shadow: 0 0 20px rgba(255,0,255,0.3);
+}
+@keyframes iridescentRotate {
+  to { filter: hue-rotate(360deg); }
 }
 
 .skin-card-name {
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 800;
-  letter-spacing: 2px;
+  letter-spacing: 1px;
+  margin-bottom: 2px;
+}
+
+.skin-card-rarity {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 1px;
   margin-bottom: 4px;
 }
 
-.skin-card-status {
+.skin-card-price {
   font-size: 0.65rem;
-  color: #00FFBB;
+  font-weight: 800;
+  color: #FFD700;
+  margin-bottom: 4px;
+}
+
+.skin-card-buff {
+  font-size: 0.55rem;
+  font-weight: 700;
+  color: rgba(0, 255, 187, 0.8);
+  margin-bottom: 6px;
+}
+
+.skin-card-status {
+  font-size: 0.6rem;
   font-weight: 700;
   letter-spacing: 1px;
+}
+
+.skin-card-status.status-equipped { color: #00FFBB; }
+.skin-card-status.status-owned { color: rgba(255,255,255,0.4); }
+
+.skin-card-actions {
+  margin-top: 6px;
+}
+
+.skin-card-actions button {
+  width: 100%;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 8px;
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-buy {
+  background: rgba(255, 215, 0, 0.15);
+  color: #FFD700;
+  border: 1px solid rgba(255, 215, 0, 0.3) !important;
+}
+.btn-buy:hover { background: rgba(255, 215, 0, 0.25); }
+.btn-buy:disabled { opacity: 0.3; cursor: not-allowed; }
+
+.btn-skin-equip {
+  background: rgba(255, 255, 255, 0.1);
+  color: #FFFFFF;
+}
+.btn-skin-equip:hover { background: rgba(255, 255, 255, 0.2); }
+
+.btn-unequip {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
 }
 
 /* --- Reward Panel (Victory / Game Over) --- */
