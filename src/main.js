@@ -50,6 +50,7 @@ let virusRespawnTimer = 0;
 // --- Progression State ---
 let progress = loadProgress();
 let skillState = null;
+let killCount = 0;
 let comboCount = 0;
 let comboTimer = 0;
 let lastKillTime = 0;
