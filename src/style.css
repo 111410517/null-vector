@@ -2054,201 +2054,140 @@ body.skill-channeling #app {
   #orientation-warning { display: flex; }
 }
 
-/* --- Landscape Mobile Redesign (Console-Style) --- */
+/* --- Landscape Mobile Redesign (Split Layout) --- */
 @media (orientation: landscape) and (max-height: 500px) {
   #orientation-warning { display: none !important; }
   
-  /* 增加 PWA 安全區域支援 */
   body {
-    padding-left: env(safe-area-inset-left, 0);
-    padding-right: env(safe-area-inset-right, 0);
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    overflow: hidden;
   }
 
   #start-menu {
     padding: 0;
+    display: flex;
     align-items: center;
-    background: radial-gradient(circle at center, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.6) 100%);
+    justify-content: center;
+    background: radial-gradient(circle at center, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.8) 100%);
   }
 
-  /* 首頁容器：中心化 */
+  /* 核心容器：改為水平並排 */
   .menu-container {
-    flex-direction: column !important;
-    height: 100vh;
+    flex-direction: row !important;
     width: 100vw !important;
-    max-width: none;
-    justify-content: center !important;
-    align-items: center !important;
-    gap: 0 !important;
-    position: relative;
-    padding: 0 !important;
-  }
-
-  /* 側邊抽屜式面板 (技能/戰績) */
-  .secondary-panel {
-    position: fixed;
-    top: 0;
-    left: -100%; /* 預設隱藏 */
-    width: 45vw !important;
     height: 100vh !important;
-    z-index: 5100;
-    border-radius: 0 30px 30px 0 !important;
-    transition: left 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-    background: rgba(20, 20, 20, 0.95) !important;
-    backdrop-filter: blur(30px) !important;
-    border-left: none !important;
-    padding: 20px !important;
-    box-shadow: 20px 0 50px rgba(0,0,0,0.5);
+    max-width: none !important;
+    padding: 20px 40px !important;
+    gap: 30px !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    position: relative;
   }
 
-  .secondary-panel.active {
-    left: 0;
-  }
-
-  /* 隱藏指南面板以釋放空間 */
-  .guide-panel {
-    display: none !important;
-  }
-
-  /* 主選單面板：精簡 */
+  /* 左側：遊戲啟動區 (40%) */
   .main-panel {
-    width: 320px !important;
+    width: 38% !important;
     background: transparent !important;
     border: none !important;
     box-shadow: none !important;
     backdrop-filter: none !important;
     padding: 0 !important;
-    text-align: center;
-    z-index: 5001;
-  }
-
-  .menu-title { font-size: 2.2rem !important; letter-spacing: 12px !important; margin-bottom: 5px !important; }
-  .menu-subtitle { font-size: 0.7rem !important; margin-bottom: 25px !important; letter-spacing: 5px !important; }
-  
-  .mobile-quick-actions {
+    text-align: left !important;
+    flex: none !important;
     display: flex !important;
-    justify-content: center;
-    margin-bottom: 20px;
+    flex-direction: column !important;
+    justify-content: center !important;
+    order: 1; /* 確保在左邊 */
   }
 
-  .quick-btn {
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    color: #fff;
-    padding: 8px 16px;
-    border-radius: 20px;
-    font-size: 0.8rem;
-    font-weight: 900;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    cursor: pointer;
-  }
-
-  .progress-bar-row { 
-    position: absolute;
-    top: 20px;
-    right: 20px;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 10px;
-    margin: 0 !important;
-  }
+  .menu-title { font-size: 1.8rem !important; letter-spacing: 6px !important; margin-bottom: 2px !important; }
+  .menu-subtitle { font-size: 0.6rem !important; margin-bottom: 20px !important; letter-spacing: 4px !important; }
   
-  .level-display { background: rgba(0,0,0,0.4); padding: 5px 12px; border-radius: 12px; }
-  .gold-display { background: rgba(0,0,0,0.4); padding: 5px 12px; border-radius: 12px; }
-
   #player-name-input { 
-    background: rgba(255, 255, 255, 0.05); 
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    padding: 12px !important; 
-    margin-bottom: 15px !important; 
-    font-size: 1rem !important; 
-    width: 100%;
+    background: rgba(255, 255, 255, 0.08); 
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 10px !important; 
+    margin-bottom: 12px !important; 
+    font-size: 0.9rem !important; 
+    width: 100% !important;
+    border-radius: 12px;
   }
   
-  .primary-btn { width: 100%; padding: 15px !important; font-size: 1.1rem !important; }
-  
-  /* 側邊欄內部調整 */
-  .tab-bar { justify-content: space-between; align-items: center; margin-bottom: 15px !important; }
-  .mobile-close-btn {
-    display: block !important;
-    background: #00FFBB;
-    color: #000;
-    border: none;
-    padding: 6px 15px;
-    border-radius: 12px;
-    font-weight: 900;
-    font-size: 0.8rem;
+  .primary-btn { width: 100% !important; padding: 12px !important; font-size: 1rem !important; border-radius: 12px; }
+
+  /* 右側：技能與戰績區 (55%) */
+  .secondary-panel {
+    position: static !important;
+    display: flex !important;
+    flex-direction: column !important;
+    width: 55% !important;
+    height: 85vh !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+    backdrop-filter: blur(20px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 24px !important;
+    padding: 15px !important;
+    order: 2;
+    overflow: hidden;
   }
 
-  /* --- In-Game UI Miniaturization --- */
+  .tab-bar { margin-bottom: 10px !important; gap: 8px !important; }
+  .tab-btn { width: 36px !important; height: 36px !important; padding: 8px !important; }
+  .mobile-close-btn { display: none !important; } /* 分欄佈局不需要關閉鈕 */
+
+  .tab-page { height: calc(100% - 50px); overflow-y: auto; }
+  .skill-card { padding: 8px !important; margin-bottom: 8px !important; }
+  .skill-card-name { font-size: 0.75rem !important; }
+  .skill-card-desc { font-size: 0.6rem !important; }
+
+  /* 等級與金幣：移至左上角，避免重疊 */
+  .progress-bar-row { 
+    position: fixed;
+    top: 15px;
+    right: 40px;
+    margin: 0 !important;
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 15px !important;
+    z-index: 6000;
+  }
+  
+  .level-display { background: rgba(0,0,0,0.5); padding: 4px 10px; border-radius: 10px; transform: scale(0.85); }
+  .gold-display { background: rgba(0,0,0,0.5); padding: 4px 10px; border-radius: 10px; transform: scale(0.85); }
+
+  /* 隱藏指南面板 */
+  .guide-panel { display: none !important; }
+
+  /* --- In-Game HUD (更加精簡) --- */
   .top-left { 
-    top: 10px !important; 
-    left: 10px !important; 
-    transform: scale(0.6) !important; 
-    transform-origin: top left; 
-    padding: 10px !important;
+    top: 8px !important; 
+    left: 8px !important; 
+    transform: scale(0.55) !important; 
+    transform-origin: top left;
   }
   
   .leaderboard { 
-    top: 10px !important; 
-    right: 10px !important; 
-    width: 150px !important; 
-    padding: 8px !important; 
-    border-radius: 16px !important;
-    transform: scale(0.8);
+    top: 8px !important; 
+    right: 8px !important; 
+    width: 140px !important; 
+    padding: 6px !important; 
+    transform: scale(0.75);
     transform-origin: top right;
   }
-  .leaderboard h2 { font-size: 0.5rem !important; margin-bottom: 5px !important; letter-spacing: 2px !important; }
-  .leaderboard-item { padding: 4px 8px !important; font-size: 0.65rem !important; margin-bottom: 3px !important; border-radius: 8px !important; }
-  .leaderboard-item .rank { width: 15px; }
 
-  .game-timer { top: 10px !important; font-size: 0.9rem !important; letter-spacing: 2px !important; }
-  
-  .controls-ui { 
-    height: 120px !important; 
-    padding: 0 40px 10px 40px !important; 
-  }
-  .joystick-zone, .skill-button-zone { width: 80px !important; height: 80px !important; }
-  .joystick-base, .skill-btn { width: 75px !important; height: 75px !important; }
-  .joystick-thumb { width: 35px !important; height: 35px !important; }
-  
-  /* --- Reward Screen (Horizontal Layout) --- */
+  /* --- 結算頁面橫向佈局優化 --- */
   #reward-screen .reward-content {
-    max-width: 90vw !important;
-    width: auto !important;
-    display: flex;
     flex-direction: row !important;
-    align-items: center;
-    gap: 40px;
-    padding: 30px !important;
+    width: 92vw !important;
+    padding: 20px !important;
+    gap: 20px !important;
   }
-
-  #reward-screen .reward-header {
-    text-align: left;
-    flex: 1;
-  }
-
-  #reward-screen .reward-title { font-size: 3rem !important; margin-bottom: 5px !important; }
-  #reward-screen .reward-subtitle { margin-bottom: 0 !important; }
-
-  #reward-screen .reward-actions {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-    width: 200px;
-  }
-
-  #reward-screen .primary-btn, #reward-screen .secondary-btn {
-    margin: 0 !important;
-  }
-
-  /* Pause Menu */
-  .pause-content { padding: 15px !important; }
-  .pause-content h2 { font-size: 1.2rem !important; margin-bottom: 15px !important; letter-spacing: 5px !important; }
-  .pause-options { gap: 40px !important; }
-  .pause-opt { width: 60px !important; height: 60px !important; }
-  .pause-opt-label { font-size: 0.6rem !important; }
+  #reward-screen .reward-header { flex: 1; text-align: left; }
+  #reward-screen .reward-panel-group { flex: 1.2; display: flex; flex-direction: column; gap: 10px; }
+  #reward-screen .reward-panel { padding: 12px !important; margin: 0 !important; }
+  #reward-screen .reward-title { font-size: 2rem !important; }
+  #reward-screen .reward-actions { flex-direction: row !important; width: 100% !important; gap: 10px; }
+  #reward-screen .primary-btn, #reward-screen .secondary-btn { flex: 1; padding: 12px !important; font-size: 0.9rem !important; }
 }
 
 @media (max-width: 1200px) and (orientation: portrait) {
