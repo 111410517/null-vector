@@ -1085,8 +1085,11 @@ function update(delta) {
 
     app.stage.scale.x += (targetZoom - app.stage.scale.x) * zoomLerp;
     app.stage.scale.y += (targetZoom - app.stage.scale.y) * zoomLerp;
-    app.stage.pivot.x += (camX - app.stage.pivot.x) * followLerp;
-    app.stage.pivot.y += (camY - app.stage.pivot.y) * followLerp;
+
+    // 降低蓄力時的攝像機跟隨靈敏度，增加瞄準時的穩定感 (0.1 -> 0.04)
+    const currentFollowLerp = (skillState && skillState.skillId === 'flashStep' && skillState.isChanneling) ? 0.04 : followLerp;
+    app.stage.pivot.x += (camX - app.stage.pivot.x) * currentFollowLerp;
+    app.stage.pivot.y += (camY - app.stage.pivot.y) * currentFollowLerp;
   } else {
     const menuZoom = minZoom * 1.2;
     app.stage.scale.x += (menuZoom - app.stage.scale.x) * zoomLerp;
