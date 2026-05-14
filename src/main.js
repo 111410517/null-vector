@@ -2976,14 +2976,22 @@ function updateCooldownUI() {
     chargeBadge.remove();
   }
 
-  if (cdProgress > 0) {
-    if (!overlay) {
-      overlay = document.createElement('div');
-      overlay.className = 'cooldown-overlay';
-      overlay.innerHTML = '<span class="cooldown-text"></span>';
-      skillBtn.appendChild(overlay);
-    }
-    const def = SKILL_DEFS[skillState.skillId];
+    let overlay = skillBtn.querySelector('.cooldown-overlay');
+    let cdText = skillBtn.querySelector('.cooldown-text');
+    
+    if (cdProgress > 0) {
+      if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.className = 'cooldown-overlay';
+        skillBtn.appendChild(overlay);
+      }
+      if (!cdText) {
+        cdText = document.createElement('div');
+        cdText.className = 'cooldown-text';
+        skillBtn.appendChild(cdText);
+      }
+      
+      const def = SKILL_DEFS[skillState.skillId];
     const nameEl = skillBtn.querySelector('.skill-name');
     const iconEl = skillBtn.querySelector('.skill-icon');
 
@@ -2995,7 +3003,7 @@ function updateCooldownUI() {
       pct = Math.floor((current / total) * 100);
       
       const isReady = skillState.charges > 0;
-      overlay.querySelector('.cooldown-text').textContent = isReady ? '' : `${pct}%`;
+      cdText.textContent = isReady ? '' : `${pct}%`;
       if (nameEl) nameEl.style.display = isReady ? 'block' : 'none';
       if (iconEl) iconEl.style.display = isReady ? 'block' : 'none';
       
@@ -3003,7 +3011,7 @@ function updateCooldownUI() {
     } else {
       const secs = Math.ceil(skillState.cooldownRemaining / 1000);
       const isReady = skillState.charges > 0;
-      overlay.querySelector('.cooldown-text').textContent = isReady ? '' : `${secs}s`;
+      cdText.textContent = isReady ? '' : `${secs}s`;
       if (nameEl) nameEl.style.display = isReady ? 'block' : 'none';
       if (iconEl) iconEl.style.display = isReady ? 'block' : 'none';
       
@@ -3029,13 +3037,13 @@ function updateCooldownUI() {
       if (!overlay) {
         overlay = document.createElement('div');
         overlay.className = 'cooldown-overlay';
-        overlay.innerHTML = '<span class="cooldown-text"></span>';
         skillBtn.appendChild(overlay);
       }
       overlay.style.clipPath = 'inset(0% 0 0 0)';
-      overlay.querySelector('.cooldown-text').textContent = '';
-    } else if (overlay) {
-      overlay.remove();
+      if (cdText) cdText.textContent = '';
+    } else {
+      if (overlay) overlay.remove();
+      if (cdText) cdText.remove();
     }
     
     // Also check if mass is insufficient
