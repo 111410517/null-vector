@@ -1555,6 +1555,8 @@ function setupInputs() {
   const activateSkill = (e) => {
     if (isGameOver || isPaused || isTutorialActive() || !player || !skillState) return;
     
+    skillBtn.classList.add('active');
+
     // 如果是觸控，啟動拖動瞄準模式
     if (e && e.touches) {
       // 找到觸發此事件的新觸摸點
@@ -1574,6 +1576,7 @@ function setupInputs() {
   };
 
   const deactivateSkill = (e) => {
+    if (skillBtn) skillBtn.classList.remove('active');
     if (!player) return;
 
     // 如果是觸控，檢查是否是當初啟動技能的那個 ID
