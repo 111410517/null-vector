@@ -988,13 +988,13 @@ function update(delta) {
       const vel = ent.body.velocity;
       const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
 
-      // Calculate Total Speed Multiplier for UI (Excluding mass penalty for better player experience)
+      // Calculate Total Speed Multiplier for UI (Excluding mass penalty, using Max to avoid multiplier explosion)
       let boostMult = 1.0;
       if (skillState) {
         if (skillState.isDefaultBoost && ent.isBoosting) boostMult = 2.0;
         else if (skillState.skillId === 'overdrive' && skillState.isActive) boostMult = skillState.overdriveSpeedMult;
       }
-      const totalMult = boostMult * (ent.speedMult || 1.0);
+      const totalMult = Math.max(boostMult, ent.speedMult || 1.0);
       const displayPct = Math.round((totalMult - 1.0) * 100);
       const sign = displayPct >= 0 ? '+' : '';
 
@@ -1192,7 +1192,7 @@ function handleInputs() {
     } else if (skillState && skillState.skillId === 'overdrive' && skillState.isActive) {
       boostMult = skillState.overdriveSpeedMult;
     }
-    const finalMult = boostMult * (player.speedMult || 1.0);
+    const finalMult = Math.max(boostMult, player.speedMult || 1.0);
     const force = CONFIG.baseForce * Math.pow(player.mass / 30, 0.8) * finalMult;
 
     // Steering Improvement: 
