@@ -2977,6 +2977,8 @@ function updateCooldownUI() {
       overlay = document.createElement('div');
       overlay.className = 'cooldown-overlay';
       overlay.innerHTML = '<span class="cooldown-text"></span>';
+      skillBtn.appendChild(overlay);
+    }
     const def = SKILL_DEFS[skillState.skillId];
     // 計算能量/進度百分比 (0-100)
     // 對於能量制技能，100% 代表已滿；對於時間制，100% 代表冷卻中
