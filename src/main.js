@@ -50,6 +50,10 @@ let virusRespawnTimer = 0;
 let progress = loadProgress();
 let skillState = null;
 let killCount = 0;
+let comboCount = 0;
+let lastKillTime = 0;
+const COMBO_WINDOW = 5000; // 5 秒連擊窗口
+
 /** 閃現技能的全域時間縮放 (1.0 = 正常, 0.3 = 減速) */
 let timeScale = 1.0;
 
@@ -285,6 +289,13 @@ function startGame() {
   isGameOver = false;
   isPaused = false;
   isMouseMoved = false; // 重置滑鼠移動狀態
+  comboCount = 0;
+  lastKillTime = 0;
+  const comboOverlay = document.getElementById('combo-overlay');
+  if (comboOverlay) comboOverlay.classList.remove('active');
+  const comboText = document.getElementById('combo-text-container');
+  if (comboText) comboText.classList.remove('active');
+
   app.ticker.speed = 1; // 確保速度恢復
   tutorialPauseStart = 0;
   clearWorld();
@@ -888,9 +899,15 @@ function update(delta) {
               return;
             }
             if (ent.mass > other.mass * 1.25 && dist < radius * 0.9) {
-              ent.mass += other.mass * 0.5;
+              const gainedMass = other.mass * 0.5;
+              ent.mass += gainedMass;
               if (ent.isPlayer || other.isPlayer) screenShake = Math.max(screenShake, 40);
-              if (ent.isPlayer && !other.isPlayer) killCount++;
+              
+              if (ent.isPlayer && !other.isPlayer) {
+                killCount++;
+                updateCombo();
+                showMassFeed(gainedMass, 'green');
+              }
               shatterEntity(other);
             }
           }
@@ -985,9 +1002,19 @@ function update(delta) {
       }
       boostTextTimer = 0;
     }
-
     if (spawnedNPCs >= CONFIG.npcCount && entities.length === 1 && entities[0].isPlayer) {
       winGame();
+    }
+  }
+
+  // Update Kill Combo Timer
+  if (isGameRunning && comboCount > 0) {
+    if (Date.now() - lastKillTime > COMBO_WINDOW) {
+      comboCount = 0;
+      const overlay = document.getElementById('combo-overlay');
+      const text = document.getElementById('combo-text-container');
+      if (overlay) overlay.classList.remove('active');
+      if (text) text.classList.remove('active');
     }
   }
 
@@ -1171,6 +1198,56 @@ function triggerRarePickupVFX(x, y) {
 }
 
 /**
+ * 更新擊殺連擊 (Combo) 邏輯與特效
+ */
+function updateCombo() {
+  comboCount++;
+  lastKillTime = Date.now();
+
+  const overlay = document.getElementById('combo-overlay');
+  const textContainer = document.getElementById('combo-text-container');
+  
+  if (comboCount > 1) {
+    overlay.classList.add('active');
+    textContainer.classList.add('active');
+    textContainer.innerHTML = `<span style="font-size: 1.5rem; color: #FFF; display: block; letter-spacing: 4px;">COMBO</span>${comboCount}`;
+    
+    // 增加一點額外的震動感
+    screenShake = Math.max(screenShake, 15 + comboCount * 2);
+  }
+}
+
+/**
+ * 在左側 Feed 顯示質量變動
+ * @param {number} amount - 變動值
+ * @param {string} type - 'green' | 'red' | 'rainbow'
+ */
+function showMassFeed(amount, type) {
+  const container = document.getElementById('mass-feed-container');
+  if (!container) return;
+
+  const item = document.createElement('div');
+  item.className = `mass-feed-item mass-${type}`;
+  const sign = amount > 0 ? '+' : '';
+  item.textContent = `${sign}${Math.floor(amount)}`;
+  
+  // 保持 Feed 簡潔，若超過 5 個則移除最舊的
+  if (container.children.length > 5) {
+    container.removeChild(container.firstChild);
+  }
+  
+  container.appendChild(item);
+  
+  // 1.5 秒後自動消失
+  setTimeout(() => {
+    item.style.transition = 'all 0.4s ease';
+    item.style.opacity = '0';
+    item.style.transform = 'translateX(-30px) scale(0.8)';
+    setTimeout(() => item.remove(), 400);
+  }, 1200);
+}
+
+/**
  * 觸發全螢幕特效 (如九九成稀罕物的金色光芒或分裂球的紅色故障)
  * @param {string} type - 'legendary' | 'virus'
  * @param {string} color - 覆蓋顏色 (可選)
@@ -1225,7 +1302,7 @@ function checkCollisions(ent) {
       ent.mass += addedMass * finalGrowthEff;
       
       if (ent.isPlayer) {
-        showFloatingText(node.body.position.x, node.body.position.y, `+${addedMass.toFixed(1)}`);
+        showMassFeed(addedMass * finalGrowthEff, 'green');
         triggerNodePickupVFX(nPos.x, nPos.y, node.isSpecial ? 0x00FFFF : 0xFFFFFF);
       } else {
         triggerNodePickupVFX(nPos.x, nPos.y, node.isSpecial ? 0x00FFFF : 0xFFFFFF);
@@ -1253,6 +1330,7 @@ function checkCollisions(ent) {
         const hexColor = '#' + (tier.color).toString(16).padStart(6, '0');
         triggerScreenEffect('legendary', hexColor);
         
+        showMassFeed(tier.mass, 'rainbow');
         screenShake = Math.max(screenShake, p.tierKey === 'iridescent' ? 100 : 60); 
         triggerRarePickupVFX(p.body.position.x, p.body.position.y);
         
@@ -1292,6 +1370,7 @@ function checkCollisions(ent) {
           if (ent.isPlayer) {
             screenShake = 30;
             triggerScreenEffect('virus');
+            showMassFeed(-massLoss, 'red');
           }
           
           // Destroy the virus after one split
@@ -2363,8 +2442,7 @@ function executeSprint() {
   if (player.mass < cost + 5) return;
 
   player.mass -= cost;
-  showFloatingText(player.body.position.x, player.body.position.y, `-${cost}`, 0xFF4444);
-
+  showMassFeed(-cost, 'red');
   // Dash in current movement direction
   const vel = player.body.velocity;
   let angle = Math.atan2(vel.y, vel.x);
@@ -2424,7 +2502,7 @@ function performSingleDash(cost) {
   // Use percentage-based mass cost for Triple Dash
   const actualCost = Math.floor(player.mass * 0.015); // 1.5% mass
   player.mass -= actualCost;
-  showFloatingText(player.body.position.x, player.body.position.y, `-${actualCost}`, 0xFF4444);
+  showMassFeed(-actualCost, 'red');
 
   // Dash toward current mouse/joystick direction
   let angle = 0;
@@ -2481,7 +2559,7 @@ async function executeFlashStep() {
 
   if (cost > 0) {
     player.mass -= cost;
-    showFloatingText(player.body.position.x, player.body.position.y, `-${cost}`, 0xFF4444);
+    showMassFeed(-cost, 'red');
   }
 
   // Calculate target position

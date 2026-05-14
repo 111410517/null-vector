@@ -2514,3 +2514,116 @@ body.skill-channeling #app {
   z-index: 10000;
   transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
 }
+
+/* ==========================================================
+   MASS FEED & COMBO UI (Pop Art Style)
+   ========================================================== */
+
+#mass-feed-container {
+  position: fixed;
+  left: 40px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  pointer-events: none;
+  z-index: 2000;
+}
+
+.mass-feed-item {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 900;
+  font-size: 2.2rem;
+  text-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  animation: massPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  opacity: 0;
+  white-space: nowrap;
+}
+
+.mass-green { color: #00FFBB; }
+.mass-red { color: #FF4444; }
+
+.mass-rainbow {
+  animation: massPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards,
+             rainbowText 2s linear infinite;
+  filter: drop-shadow(0 0 10px rgba(255,255,255,0.5));
+  font-size: 2.8rem;
+}
+
+#combo-overlay {
+  position: fixed;
+  top: 0; left: 0; width: 100vw; height: 100vh;
+  pointer-events: none;
+  z-index: 1000;
+  opacity: 0;
+  transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: inset 0 0 150px rgba(255, 68, 0, 0.6);
+  background-image: radial-gradient(circle, rgba(255, 68, 0, 0.4) 15%, transparent 15%);
+  background-size: 30px 30px;
+  background-position: 0 0;
+  -webkit-mask-image: radial-gradient(circle, transparent 60%, black 120%);
+  mask-image: radial-gradient(circle, transparent 60%, black 120%);
+}
+
+#combo-overlay.active {
+  opacity: 1;
+  animation: comboPulse 2s ease-in-out infinite;
+}
+
+#combo-text-container {
+  position: fixed;
+  right: 5%;
+  bottom: 15%;
+  font-family: 'Outfit', sans-serif;
+  font-weight: 900;
+  font-size: 4rem;
+  color: #FF4400;
+  text-shadow: 0 0 20px rgba(255, 68, 0, 0.6);
+  pointer-events: none;
+  z-index: 1100;
+  opacity: 0;
+  transform: scale(0.8) rotate(5deg);
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+#combo-text-container.active {
+  opacity: 1;
+  transform: scale(1) rotate(-2deg);
+}
+
+@keyframes massPop {
+  0% { transform: scale(0.5); opacity: 0; }
+  30% { transform: scale(1.4); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes rainbowText {
+  0% { color: #ff0000; }
+  17% { color: #ff8800; }
+  33% { color: #ffff00; }
+  50% { color: #00ff00; }
+  67% { color: #00ffff; }
+  83% { color: #0000ff; }
+  100% { color: #ff00ff; }
+}
+
+@keyframes comboPulse {
+  0%, 100% { transform: scale(1); filter: brightness(1); }
+  50% { transform: scale(1.02); filter: brightness(1.3); }
+}
+
+/* Mobile Adjustments for Mass Feed */
+@media (max-width: 900px) {
+  #mass-feed-container { 
+    left: 20px;
+    gap: 8px;
+  }
+  .mass-feed-item { font-size: 1.4rem; }
+  .mass-rainbow { font-size: 1.8rem; }
+  #combo-text-container {
+    font-size: 2.5rem;
+    right: 10px;
+    bottom: 20%;
+  }
+}
