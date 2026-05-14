@@ -1201,6 +1201,7 @@ function handleInputs() {
     const diff = Matter.Vector.sub(worldMouse, player.body.position);
     const dist = Matter.Vector.magnitude(diff);
 
+    const def = SKILL_DEFS.flashStep;
     const baseMaxRange = calculateRadius(player.mass) * def.maxRangeMultiplier;
     const softLimit = baseMaxRange * 0.8;
     // Damping logic: Beyond 80% range, the aim point moves much slower (0.3 factor)
