@@ -1114,6 +1114,24 @@ function handleInputs() {
     const finalMult = boostMult * (player.speedMult || 1.0);
     const force = CONFIG.baseForce * Math.pow(player.mass / 30, 0.8) * finalMult;
     
+    // Steering Improvement: 
+    // 當玩家快速轉向時，消減與目標方向不一致的動量，提升轉向靈敏度
+    const currentVel = player.body.velocity;
+    const speed = Math.sqrt(currentVel.x * currentVel.x + currentVel.y * currentVel.y);
+    if (speed > 2) {
+      const normVel = { x: currentVel.x / speed, y: currentVel.y / speed };
+      // 計算當前速度與目標方向的點積
+      const dot = normVel.x * joystick.vector.x + normVel.y * joystick.vector.y;
+      if (dot < 0.6) { 
+        // 點積小於 0.6 表示轉向角度較大，應用阻尼
+        const damping = 0.92;
+        Matter.Body.setVelocity(player.body, {
+          x: currentVel.x * damping,
+          y: currentVel.y * damping
+        });
+      }
+    }
+
     Matter.Body.applyForce(player.body, player.body.position, { 
       x: joystick.vector.x * force, 
       y: joystick.vector.y * force
@@ -2578,10 +2596,6 @@ function startOverdrive() {
   skillState.overdriveElapsed = 0;
   skillState.overdriveSpeedMult = 1.01;
   player.isBoosting = true; 
-  
-  // VFX: Burst
-  triggerShockwave(player.body.position.x, player.body.position.y, 0x00FFBB);
-  screenShake = Math.max(screenShake, 25);
 }
 
 function endOverdrive() {
@@ -2630,10 +2644,10 @@ function performSingleDash(cost) {
     y: Math.sin(angle) * force
   });
 
-  // VFX: Ghostly dash
+  // VFX: Ghostly dash (Below player)
   const radius = calculateRadius(player.mass);
-  createTrail(player.body.position.x, player.body.position.y, radius, 0x00C8FF, 0.6, 500);
-  triggerShockwave(player.body.position.x, player.body.position.y, 0x00C8FF);
+  createTrail(player.body.position.x, player.body.position.y, radius, 0xFFFFFF, 0.6, 500);
+  triggerShockwave(player.body.position.x, player.body.position.y, 0xFFFFFF);
 
   screenShake = Math.max(screenShake, 12); 
   skillState.tripleDashRemaining--;
@@ -3233,7 +3247,7 @@ function createTrail(x, y, radius, color, alpha, duration) {
   trail.circle(0, 0, radius);
   trail.fill({ color, alpha });
   trail.position.set(x, y);
-  vfxLayer.addChild(trail);
+  nodeLayer.addChild(trail); // Put in nodeLayer (below entities)
   
   let elapsed = 0;
   const anim = (d) => {
@@ -3242,7 +3256,7 @@ function createTrail(x, y, radius, color, alpha, duration) {
     trail.alpha = alpha * (1 - p);
     trail.scale.set(1 - 0.3 * p);
     if (p >= 1) {
-      vfxLayer.removeChild(trail);
+      nodeLayer.removeChild(trail);
       app.ticker.remove(anim);
     }
   };
@@ -3251,7 +3265,7 @@ function createTrail(x, y, radius, color, alpha, duration) {
 
 function triggerShockwave(x, y, color) {
   const ring = new PIXI.Graphics();
-  vfxLayer.addChild(ring);
+  nodeLayer.addChild(ring); // Put in nodeLayer (below entities)
   let r = 5;
   const anim = (d) => {
     r += 18 * d.deltaTime;
@@ -3259,7 +3273,7 @@ function triggerShockwave(x, y, color) {
     ring.circle(x, y, r);
     ring.stroke({ width: 4, color, alpha: 1 - r/180 });
     if (r > 180) {
-      vfxLayer.removeChild(ring);
+      nodeLayer.removeChild(ring);
       app.ticker.remove(anim);
     }
   };

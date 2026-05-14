@@ -40,7 +40,7 @@ export const SKILL_DEFS = {
     // 加速漸增時間（ms）、持續時間（ms）
     rampUpDuration: 1000,           // 回調至 1s
     sustainDuration: [3000, 3000, 3000], // 維持 3s
-    maxSpeedMult: 3.5,
+    maxSpeedMult: 4.5,
   },
 
   tripleDash: {
