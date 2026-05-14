@@ -1009,12 +1009,29 @@ function update(delta) {
 
   // Update Kill Combo Timer
   if (isGameRunning && comboCount > 0) {
-    if (Date.now() - lastKillTime > COMBO_WINDOW) {
+    const elapsed = Date.now() - lastKillTime;
+    if (elapsed > COMBO_WINDOW) {
       comboCount = 0;
       const overlay = document.getElementById('combo-overlay');
       const text = document.getElementById('combo-text-container');
       if (overlay) overlay.classList.remove('active');
       if (text) text.classList.remove('active');
+    } else {
+      // 更新計時條
+      const bar = document.querySelector('.combo-timer-bar');
+      if (bar) {
+        const pct = Math.max(0, (COMBO_WINDOW - elapsed) / COMBO_WINDOW) * 100;
+        bar.style.width = `${pct}%`;
+      }
+      
+      // 動態調整火焰強度
+      const overlay = document.getElementById('combo-overlay');
+      if (overlay) {
+        const glow = 150 + comboCount * 20;
+        const opacity = Math.min(0.9, 0.4 + comboCount * 0.05);
+        overlay.style.setProperty('--combo-glow', `${glow}px`);
+        overlay.style.setProperty('--combo-opacity', opacity);
+      }
     }
   }
 
@@ -1198,6 +1215,15 @@ function triggerRarePickupVFX(x, y) {
 }
 
 /**
+ * 取得當前連擊帶來的縮減加成 (0.5 ~ 1.0)
+ */
+function getComboBuff() {
+  if (comboCount <= 1) return 1.0;
+  const reduction = Math.min(0.5, (comboCount - 1) * 0.05);
+  return 1.0 - reduction;
+}
+
+/**
  * 更新擊殺連擊 (Combo) 邏輯與特效
  */
 function updateCombo() {
@@ -1208,9 +1234,22 @@ function updateCombo() {
   const textContainer = document.getElementById('combo-text-container');
   
   if (comboCount > 1) {
+    const buff = getComboBuff();
+    const reductionPct = Math.round((1 - buff) * 100);
+    const buffType = (skillState && !skillState.isDefaultBoost) ? 'CD' : 'Cost';
+
     overlay.classList.add('active');
     textContainer.classList.add('active');
-    textContainer.innerHTML = `<span style="font-size: 1.5rem; color: #FFF; display: block; letter-spacing: 4px;">COMBO</span>${comboCount}`;
+    textContainer.innerHTML = `
+      <div class="combo-buff-label">${buffType} -${reductionPct}%</div>
+      <div class="combo-number-wrap">
+        <span style="font-size: 1.5rem; color: #FFF; display: block; letter-spacing: 4px; margin-bottom: -15px;">COMBO</span>
+        ${comboCount}
+      </div>
+      <div class="combo-timer-wrapper">
+        <div class="combo-timer-bar"></div>
+      </div>
+    `;
     
     // 增加一點額外的震動感
     screenShake = Math.max(screenShake, 15 + comboCount * 2);
@@ -1223,6 +1262,8 @@ function updateCombo() {
  * @param {string} type - 'green' | 'red' | 'rainbow'
  */
 function showMassFeed(amount, type) {
+  if (Math.floor(Math.abs(amount)) === 0) return; // 忽略為 0 的變動
+
   const container = document.getElementById('mass-feed-container');
   if (!container) return;
 
@@ -2438,7 +2479,8 @@ function handleSkillDeactivation() {
 // --- Sprint ---
 function executeSprint() {
   const def = SKILL_DEFS.sprint;
-  const cost = getSkillParam(def, 'massCost', skillState.level);
+  const buff = getComboBuff();
+  const cost = Math.floor(getSkillParam(def, 'massCost', skillState.level) * buff);
   if (player.mass < cost + 5) return;
 
   player.mass -= cost;
@@ -2464,7 +2506,7 @@ function executeSprint() {
     y: Math.sin(angle) * force
   });
   screenShake = Math.max(screenShake, 8);
-  startCooldown(skillState);
+  startCooldown(skillState, buff);
 }
 
 // --- Overdrive ---
@@ -2481,7 +2523,7 @@ function endOverdrive() {
   skillState.overdriveSpeedMult = 1.0;
   skillState.isActive = false;
   player.isBoosting = false;
-  startCooldown(skillState);
+  startCooldown(skillState, getComboBuff());
 }
 
 // --- Triple Dash ---
@@ -2499,8 +2541,9 @@ function executeTripleDash() {
 function performSingleDash(cost) {
   if (!player || player.isDestroyed) return;
   
+  const buff = getComboBuff();
   // Use percentage-based mass cost for Triple Dash
-  const actualCost = Math.floor(player.mass * 0.015); // 1.5% mass
+  const actualCost = Math.floor(player.mass * 0.015 * buff); // 1.5% mass * buff
   player.mass -= actualCost;
   showMassFeed(-actualCost, 'red');
 
@@ -2522,6 +2565,10 @@ function performSingleDash(cost) {
   });
   screenShake = Math.max(screenShake, 12); // Increased from 6 for better feel
   skillState.tripleDashRemaining--;
+  
+  if (skillState.tripleDashRemaining <= 0) {
+    startCooldown(skillState, getComboBuff());
+  }
 }
 
 // --- Flash Step ---
@@ -2649,7 +2696,7 @@ async function executeFlashStep() {
   // VFX
   
   cleanupFlashStepVisuals();
-  startCooldown(skillState);
+  startCooldown(skillState, getComboBuff());
   skillState.isActive = false;
 }
 

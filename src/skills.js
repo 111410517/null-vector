@@ -188,7 +188,10 @@ export function updateSkillCooldown(skillState, deltaMs) {
       if (skillState.charges < skillState.maxCharges) {
         const def = SKILL_DEFS[skillState.skillId];
         if (def) {
-          skillState.cooldownRemaining = getSkillParam(def, 'cooldown', skillState.level);
+          const baseCD = getSkillParam(def, 'cooldown', skillState.level);
+          // 使用傳入的倍率（若有），否則預設 1.0
+          const multiplier = skillState.currentCDMultiplier || 1.0;
+          skillState.cooldownRemaining = baseCD * multiplier;
         }
       }
     }
@@ -198,14 +201,19 @@ export function updateSkillCooldown(skillState, deltaMs) {
 /**
  * 啟動技能冷卻
  * @param {object} skillState - 運行時狀態
+ * @param {number} multiplier - 冷卻時間倍率 (預設 1.0)
  */
-export function startCooldown(skillState) {
+export function startCooldown(skillState, multiplier = 1.0) {
   const def = SKILL_DEFS[skillState.skillId];
   if (!def) return;
   
+  // 紀錄當前倍率供後續充能使用
+  skillState.currentCDMultiplier = multiplier;
+
   // 如果原本是滿的，開始計時第一個充能的恢復
   if (skillState.charges === skillState.maxCharges) {
-    skillState.cooldownRemaining = getSkillParam(def, 'cooldown', skillState.level);
+    const baseCD = getSkillParam(def, 'cooldown', skillState.level);
+    skillState.cooldownRemaining = baseCD * multiplier;
   }
   
   skillState.charges = Math.max(0, skillState.charges - 1);

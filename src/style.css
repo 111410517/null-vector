@@ -2558,7 +2558,7 @@ body.skill-channeling #app {
   z-index: 1000;
   opacity: 0;
   transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: inset 0 0 150px rgba(255, 68, 0, 0.6);
+  box-shadow: inset 0 0 var(--combo-glow, 150px) rgba(255, 68, 0, var(--combo-opacity, 0.6));
   background-image: radial-gradient(circle, rgba(255, 68, 0, 0.4) 15%, transparent 15%);
   background-size: 30px 30px;
   background-position: 0 0;
@@ -2577,14 +2577,46 @@ body.skill-channeling #app {
   bottom: 15%;
   font-family: 'Outfit', sans-serif;
   font-weight: 900;
-  font-size: 4rem;
-  color: #FF4400;
-  text-shadow: 0 0 20px rgba(255, 68, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
   pointer-events: none;
   z-index: 1100;
   opacity: 0;
   transform: scale(0.8) rotate(5deg);
   transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.combo-buff-label {
+  font-size: 1.4rem;
+  color: #00FFBB;
+  text-shadow: 0 0 10px rgba(0, 255, 187, 0.6);
+  margin-bottom: -5px;
+  letter-spacing: 1px;
+}
+
+.combo-number-wrap {
+  font-size: 5rem;
+  color: #FF4400;
+  line-height: 1;
+  text-shadow: 0 0 25px rgba(255, 68, 0, 0.8);
+}
+
+.combo-timer-wrapper {
+  width: 120px;
+  height: 6px;
+  background: rgba(0,0,0,0.5);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 10px;
+  border: 1px solid rgba(255, 68, 0, 0.3);
+}
+
+.combo-timer-bar {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, #FF4400, #FF8800);
+  box-shadow: 0 0 10px #FF4400;
 }
 
 #combo-text-container.active {
