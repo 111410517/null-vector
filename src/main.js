@@ -799,7 +799,7 @@ function update(delta) {
     // Update skill cooldown (only if game is actually running)
     if (isGameRunning && skillState) {
       updateSkillCooldown(skillState, scaledDeltaMS);
-      updateSkillEffects(delta, scaledDeltaMS);
+      updateSkillEffects(delta);
       updateCooldownUI();
     }
 
@@ -1073,19 +1073,13 @@ function update(delta) {
     if (skillState && skillState.skillId === 'flashStep' && skillState.isChanneling) {
       targetZoom *= 1.25; // Zoom in slightly while aiming
       
-      // Shift camera pivot to the MIDPOINT between player and target destination
-      // This ensures both player and landing spot are visible and balanced
+      // Shift camera pivot towards the aim target
       if (skillDrag.vector.x !== 0 || skillDrag.vector.y !== 0) {
-        const def = SKILL_DEFS.flashStep;
-        const maxRange = (player.mass / 10 + 200) * def.maxRangeMultiplier;
-        
-        // Calculate destination based on current aim vector
-        const destX = player.body.position.x + skillDrag.vector.x * maxRange;
-        const destY = player.body.position.y + skillDrag.vector.y * maxRange;
-        
-        // Target the center point between current position and destination
-        camX = (player.body.position.x + destX) / 2;
-        camY = (player.body.position.y + destY) / 2;
+        const radius = calculateRadius(player.mass);
+        const maxRange = radius * SKILL_DEFS.flashStep.maxRangeMultiplier;
+        const lookAhead = maxRange * 0.7; // Follow up to 70% of max range to focus on destination
+        camX += skillDrag.vector.x * lookAhead;
+        camY += skillDrag.vector.y * lookAhead;
       }
     }
 
@@ -1205,7 +1199,8 @@ function handleInputs() {
     const dist = Matter.Vector.magnitude(diff);
 
     const def = SKILL_DEFS.flashStep;
-    const maxRange = (player.mass / 10 + 200) * def.maxRangeMultiplier;
+    const radius = calculateRadius(player.mass);
+    const maxRange = radius * def.maxRangeMultiplier;
     const normalizedDist = Math.min(dist, maxRange) / maxRange;
 
     if (dist > 0) {
@@ -2985,14 +2980,14 @@ function pointToSegmentDist(p, a, b) {
 /**
  * 每幀更新技能效果（Overdrive 漸增、Triple Dash 連擊、Flash Step 指示器）
  */
-function updateSkillEffects(delta, scaledDeltaMS) {
+function updateSkillEffects(delta) {
   if (!skillState || !player || player.isDestroyed) return;
   const dt = delta.deltaTime;
 
   // Overdrive ramp-up and sustain
   if (skillState.skillId === 'overdrive' && skillState.isActive) {
     const def = SKILL_DEFS.overdrive;
-    skillState.overdriveElapsed += scaledDeltaMS;
+    skillState.overdriveElapsed += delta.elapsedMS;
 
     if (skillState.overdrivePhase === 'rampUp') {
       const overdriveProgress = Math.min(1, skillState.overdriveElapsed / def.rampUpDuration);
@@ -3026,7 +3021,7 @@ function updateSkillEffects(delta, scaledDeltaMS) {
 
   // Triple Dash interval
   if (skillState.skillId === 'tripleDash' && skillState.isActive && skillState.tripleDashRemaining > 0) {
-    skillState.tripleDashTimer += scaledDeltaMS;
+    skillState.tripleDashTimer += delta.elapsedMS;
     if (skillState.tripleDashTimer >= SKILL_DEFS.tripleDash.dashInterval) {
       skillState.tripleDashTimer = 0;
       const costPerDash = getSkillParam(SKILL_DEFS.tripleDash, 'massCostPerDash', skillState.level);
