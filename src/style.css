@@ -2691,3 +2691,21 @@ body.skill-channeling #app {
     bottom: 20%;
   }
 }
+
+#fps-display {
+  position: fixed;
+  top: 0;
+  right: 0;
+  padding: 2px 8px;
+  font-family: 'Outfit', sans-serif;
+  font-weight: 900;
+  font-size: 1.1rem;
+  color: #FFFFFF;
+  text-shadow: 0 0 5px rgba(0,0,0,0.8);
+  pointer-events: none;
+  z-index: 10000;
+  display: none;
+  background: rgba(0, 255, 187, 0.3);
+  border-bottom-left-radius: 8px;
+  backdrop-filter: blur(5px);
+}

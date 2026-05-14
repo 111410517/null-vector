@@ -301,7 +301,10 @@ function startGame() {
   if (comboText) comboText.classList.remove('active');
 
   const fpsDisplay = document.getElementById('fps-display');
-  if (fpsDisplay) fpsDisplay.style.display = 'block';
+  if (fpsDisplay) {
+    fpsDisplay.style.display = 'block';
+    fpsDisplay.textContent = 'fps --';
+  }
 
   app.ticker.speed = 1; // 確保速度恢復
   tutorialPauseStart = 0;
