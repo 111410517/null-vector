@@ -50,8 +50,8 @@ let virusRespawnTimer = 0;
 // --- Progression State ---
 let progress = loadProgress();
 let skillState = null;
-let killCount = 0;
 let comboCount = 0;
+let comboTimer = 0;
 let lastKillTime = 0;
 const COMBO_WINDOW = 5000; // 5 秒連擊窗口
 
@@ -803,6 +803,12 @@ function update(delta) {
   const shouldUpdatePhysics = !isGameOver && !isPaused && !isTutorialActive();
 
   if (shouldUpdatePhysics) {
+    // Flash Step Channeling: Freeze player in place
+    if (skillState && skillState.skillId === 'flashStep' && skillState.isChanneling && player) {
+      Matter.Body.setVelocity(player.body, { x: 0, y: 0 });
+      Matter.Body.setAngularVelocity(player.body, 0);
+    }
+
     Matter.Engine.update(engine, scaledDeltaMS);
 
     // Update skill cooldown (only if game is actually running)
@@ -1138,10 +1144,10 @@ function update(delta) {
     }
   }
 
-  // Update Kill Combo Timer
+  // Update Kill Combo Timer (Now synced with timeScale)
   if (isGameRunning && comboCount > 0) {
-    const elapsed = Date.now() - lastKillTime;
-    if (elapsed > COMBO_WINDOW) {
+    comboTimer -= scaledDeltaMS;
+    if (comboTimer <= 0) {
       comboCount = 0;
       const overlay = document.getElementById('combo-overlay');
       const text = document.getElementById('combo-text-container');
@@ -1427,7 +1433,8 @@ function getComboBuff() {
  */
 function updateCombo() {
   comboCount++;
-  lastKillTime = Date.now();
+  comboTimer = COMBO_WINDOW;
+  lastKillTime = Date.now(); // Keep for UI or other non-physics logic if needed
 
   const overlay = document.getElementById('combo-overlay');
   const textContainer = document.getElementById('combo-text-container');
@@ -2847,10 +2854,8 @@ async function executeFlashStep() {
   if (!skillState.isChanneling) return;
   skillState.isChanneling = false;
   
-  // Power Sense Transition: Small delay then ramp up timeScale
-  setTimeout(() => {
-    targetTimeScale = 1.0;
-  }, 120);
+  // Reset targetTimeScale immediately; the update loop's lerp will create the "Power Sense"
+  targetTimeScale = 1.0;
 
   document.body.classList.remove('skill-channeling');
   document.body.classList.remove('hide-cursor');
