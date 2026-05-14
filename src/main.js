@@ -2839,15 +2839,20 @@ async function executeFlashStep() {
     targetX = player.body.position.x + Math.cos(moveAngle) * d;
     targetY = player.body.position.y + Math.sin(moveAngle) * d;
   } else {
-    // PC 模式：使用滑鼠座標
-    const screenPos = new PIXI.Point(mousePos.x, mousePos.y);
-    const worldMouse = app.stage.toLocal(screenPos);
-    const diff = Matter.Vector.sub(worldMouse, player.body.position);
-    const dist = Matter.Vector.magnitude(diff);
+    // PC 模式：使用穩定的螢幕差值計算，防止攝影機移動干擾瞄準
+    const playerGlobal = app.stage.toGlobal(player.body.position);
+    const dx = (mousePos.x - playerGlobal.x) / app.stage.scale.x;
+    const dy = (mousePos.y - playerGlobal.y) / app.stage.scale.y;
+    
+    const dist = Math.sqrt(dx * dx + dy * dy);
     const clampedDist = Math.min(dist, maxDist);
-    const norm = Matter.Vector.normalise(diff);
-    targetX = player.body.position.x + norm.x * clampedDist;
-    targetY = player.body.position.y + norm.y * clampedDist;
+    if (dist > 0) {
+      targetX = player.body.position.x + (dx / dist) * clampedDist;
+      targetY = player.body.position.y + (dy / dist) * clampedDist;
+    } else {
+      targetX = player.body.position.x;
+      targetY = player.body.position.y;
+    }
   }
 
   // 邊界限制
@@ -3034,19 +3039,23 @@ function updateSkillEffects(delta) {
       tx = player.body.position.x + Math.cos(angle) * d;
       ty = player.body.position.y + Math.sin(angle) * d;
     } else {
-      const screenPos = new PIXI.Point(mousePos.x, mousePos.y);
-      const worldMouse = app.stage.toLocal(screenPos);
-      const diff = Matter.Vector.sub(worldMouse, player.body.position);
-      const dist = Matter.Vector.magnitude(diff);
+      // PC 模式：使用穩定的螢幕差值計算，防止攝影機移動干擾瞄準
+      const playerGlobal = app.stage.toGlobal(player.body.position);
+      const dx = (mousePos.x - playerGlobal.x) / app.stage.scale.x;
+      const dy = (mousePos.y - playerGlobal.y) / app.stage.scale.y;
+      
+      const dist = Math.sqrt(dx * dx + dy * dy);
       const d = Math.min(dist, maxDist);
-      const norm = Matter.Vector.normalise(diff);
-      tx = player.body.position.x + norm.x * d;
-      ty = player.body.position.y + norm.y * d;
+      const nx = dist > 0 ? dx / dist : 0;
+      const ny = dist > 0 ? dy / dist : 0;
+      
+      tx = player.body.position.x + nx * d;
+      ty = player.body.position.y + ny * d;
 
       // [NEW] Sync skillDrag.vector for PC mode to enable camera following
       if (maxDist > 0) {
-        skillDrag.vector.x = norm.x * (d / maxDist);
-        skillDrag.vector.y = norm.y * (d / maxDist);
+        skillDrag.vector.x = nx * (d / maxDist);
+        skillDrag.vector.y = ny * (d / maxDist);
       }
     }
     tx = Math.max(100, Math.min(CONFIG.worldSize - 100, tx));
