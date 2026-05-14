@@ -253,6 +253,7 @@ function spawnNPC(index, customX, customY, customMass, isDemoScripted, avoidViru
 function startGame() {
   isGameOver = false;
   isPaused = false;
+  app.ticker.speed = 1; // 確保速度恢復
   tutorialPauseStart = 0;
   clearWorld();
   killCount = 0;
@@ -1869,6 +1870,7 @@ window.restartGame = () => {
   document.getElementById('reward-screen').style.display = 'none';
   document.getElementById('pause-menu').style.display = 'none';
   isPaused = false;
+  app.ticker.speed = 1; // 確保速度恢復
   showLoadingScreen(startGame);
 };
 
@@ -1876,6 +1878,7 @@ window.returnToMenu = () => {
   isGameRunning = false;
   isGameOver = false;
   isPaused = false;
+  app.ticker.speed = 1; // 確保速度恢復
   
   // 清理世界並重新生成原有的演示背景物件 (4個特定 NPC)
   clearWorld();
