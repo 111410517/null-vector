@@ -44,8 +44,8 @@ let tutorialPauseStart = 0;
 let miniCanvas, miniCtx;
 let boostAccumulator = 0;
 let boostTextTimer = 0;
-let rareItemSpawnTimer = 0; 
-let virusRespawnTimer = 0; 
+let rareItemSpawnTimer = 0;
+let virusRespawnTimer = 0;
 
 // --- Progression State ---
 let progress = loadProgress();
@@ -89,7 +89,7 @@ function showLoadingScreen(callback) {
     screen.style.display = 'flex';
     screen.classList.remove('fade-out');
     updateLoadingProgress(0);
-    
+
     // 模擬一個平滑的加載過程
     let loadPct = 0;
     const interval = setInterval(() => {
@@ -141,7 +141,7 @@ async function init() {
   virusLayer = new PIXI.Container();
   powerupLayer = new PIXI.Container();
   vfxLayer = new PIXI.Container();
-  
+
   // Z-Order: Nodes -> Powerups -> Entities -> Viruses -> VFX
   gameContainer.addChild(nodeLayer, powerupLayer, entityLayer, virusLayer, vfxLayer);
   app.stage.addChild(gameContainer);
@@ -180,7 +180,7 @@ async function init() {
   for (let i = 0; i < CONFIG.virusCount; i++) spawnVirus();
 
   setupInputs();
-  
+
   // [NEW] Mobile Navigation Event Listeners
   document.querySelectorAll('.m-nav-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -254,7 +254,7 @@ function clearWorld() {
 }
 
 function spawnNPC(index, customX, customY, customMass, isDemoScripted, avoidViruses, noBoost, isOpportunist, isAlwaysBoosting, growthEfficiency, speedMult) {
-  const isSmart = isDemoScripted || isOpportunist || isAlwaysBoosting || (index < (CONFIG.npcCount * 0.5)); 
+  const isSmart = isDemoScripted || isOpportunist || isAlwaysBoosting || (index < (CONFIG.npcCount * 0.5));
   let name;
   if (isDemoScripted) {
     name = "NULL_VECTOR_DEMO";
@@ -264,14 +264,14 @@ function spawnNPC(index, customX, customY, customMass, isDemoScripted, avoidViru
     name = "SPEEDSTER_BOT";
   } else if (isSmart) {
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()";
-    name = Array.from({length: 8}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    name = Array.from({ length: 8 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
   } else {
     name = NPC_NAMES[index % (NPC_NAMES.length - 1)];
   }
-  
+
   const x = customX !== undefined ? customX : Math.random() * CONFIG.worldSize;
   const y = customY !== undefined ? customY : Math.random() * CONFIG.worldSize;
-  
+
   const initialMass = customMass || CONFIG.initialMass;
   const ent = createEntity(x, y, initialMass, name, false);
   ent.isSmart = isSmart;
@@ -285,7 +285,7 @@ function spawnNPC(index, customX, customY, customMass, isDemoScripted, avoidViru
   ent.protectionTime = 0; // 進入遊戲不應該有保護時間
   ent.spawnDelay = customMass ? 0 : 1000;
   ent.efficiency = Math.random() > 0.5 ? 0.67 : 1.0;
-  
+
   // [NEW] 播放與玩家同款的入場特效
   triggerSpawnVFX(x, y);
 }
@@ -344,11 +344,11 @@ function startGame() {
   }, 3000);
 
   // START RARE ITEM (Controlled by update loop timer)
-  rareItemSpawnTimer = 30000; 
+  rareItemSpawnTimer = 30000;
 
   // 6. Start Spawning NPCs over time
   spawnedNPCs = 0;
-  
+
   // [NEW] 立即對齊攝影機，防止瞬間移動
   if (player) {
     const baseZoom = isTouchDevice ? 0.55 : 0.85;
@@ -377,10 +377,10 @@ function createEntity(x, y, mass, name, isPlayer) {
     restitution: 0.6,
     label: isPlayer ? 'player' : 'npc'
   });
-  
+
   const container = new PIXI.Container();
   const graphics = new PIXI.Graphics();
-  
+
   // 1. Body Graphics (Bottom Layer)
   container.addChild(graphics);
 
@@ -400,21 +400,21 @@ function createEntity(x, y, mass, name, isPlayer) {
   const massLabel = new PIXI.Text({
     text: Math.floor(mass),
     style: {
-      fontFamily: 'Outfit', fontSize: 28, 
-      fill: isPlayer ? 0x000000 : 0xFFFFFF, 
+      fontFamily: 'Outfit', fontSize: 28,
+      fill: isPlayer ? 0x000000 : 0xFFFFFF,
       align: 'center', fontWeight: '900',
     }
   });
   massLabel.anchor.set(0.5, 0.5);
   container.addChild(massLabel);
-  
+
   const indicator = new PIXI.Graphics();
   indicator.visible = false;
   app.stage.addChild(indicator);
 
-  const entity = { 
-    body, container, graphics, nameLabel, massLabel, indicator, 
-    mass, name, isPlayer, 
+  const entity = {
+    body, container, graphics, nameLabel, massLabel, indicator,
+    mass, name, isPlayer,
     lives: 2,
     protectionTime: 0, // 預設無保護時間，由復活邏輯觸發
     isBoosting: false,
@@ -436,9 +436,9 @@ function createEntity(x, y, mass, name, isPlayer) {
   };
 
   entity.body.collisionFilter = {
-    group: -1, 
+    group: -1,
     category: 0x0002,
-    mask: 0x0001 
+    mask: 0x0001
   };
 
   const refRadius = calculateRadius(CONFIG.initialMass);
@@ -448,14 +448,14 @@ function createEntity(x, y, mass, name, isPlayer) {
   // Direction Indicator (Triangle)
   if (isPlayer) {
     const dirIndicator = new PIXI.Graphics();
-    dirIndicator.poly([0, 0, -12, -6, -12, 6]); 
+    dirIndicator.poly([0, 0, -12, -6, -12, 6]);
     dirIndicator.fill({ color: 0xFFFFFF });
     container.addChild(dirIndicator);
     entity.dirIndicator = dirIndicator;
 
     // [NEW] Speed Multiplier Group
     const speedGroup = new PIXI.Container();
-    
+
     // Draw a custom white lightning bolt
     const bolt = new PIXI.Graphics();
     bolt.poly([
@@ -470,7 +470,7 @@ function createEntity(x, y, mass, name, isPlayer) {
     bolt.fill(0xFFFFFF);
     bolt.scale.set(0.8);
     bolt.x = -32; // Offset to the left of text
-    bolt.y = -7;
+    bolt.y = -5;
     speedGroup.addChild(bolt);
 
     const speedIndicator = new PIXI.Text({
@@ -482,9 +482,9 @@ function createEntity(x, y, mass, name, isPlayer) {
       }
     });
     speedIndicator.anchor.set(0, 0.5);
-    speedIndicator.x = -18; 
+    speedIndicator.x = -18;
     speedGroup.addChild(speedIndicator);
-    
+
     container.addChild(speedGroup);
     entity.speedIndicator = speedIndicator;
     entity.speedGroup = speedGroup;
@@ -497,7 +497,7 @@ function createEntity(x, y, mass, name, isPlayer) {
     container.addChild(ring);
   }
   updateLifeRings(entity);
-  
+
   if (vfxLayer) gameContainer.setChildIndex(vfxLayer, gameContainer.children.length - 1);
 
   entities.push(entity);
@@ -509,7 +509,7 @@ function createEntity(x, y, mass, name, isPlayer) {
 function drawEntityBody(g, isPlayer, radius, ent) {
   if (!ent) return;
   g.clear();
-  
+
   const pos = ent.body.position;
   const points = 32; // Optimized for mobile performance
   const wobbleSpeed = 0.003;
@@ -521,14 +521,14 @@ function drawEntityBody(g, isPlayer, radius, ent) {
   const distR = CONFIG.worldSize - pos.x;
   const distT = pos.y;
   const distB = CONFIG.worldSize - pos.y;
-  
+
   // Calculate squeeze compensation (More stable formula)
   const limit = radius * 0.4;
   let squeezeX = 0;
   if (distL < radius) squeezeX += (radius - distL);
   if (distR < radius) squeezeX += (radius - distR);
   squeezeX = Math.min(limit, squeezeX * 0.4);
-  
+
   let squeezeY = 0;
   if (distT < radius) squeezeY += (radius - distT);
   if (distB < radius) squeezeY += (radius - distB);
@@ -548,12 +548,12 @@ function drawEntityBody(g, isPlayer, radius, ent) {
       const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
       if (speed > 0.5) {
         const velAngle = Math.atan2(vel.y, vel.x);
-        
+
         // INTERERTIAL SWAY: Use a blend of real angle and lagged tail angle
         // Back vertices lag more, front vertices lag less
         const dotForLag = Math.cos(angle - velAngle);
         const lagMix = Math.max(0, -dotForLag); // 1.0 at back, 0.0 at front
-        
+
         // Circular lerp for angle
         let a1 = velAngle;
         let a2 = ent.tailAngle;
@@ -563,7 +563,7 @@ function drawEntityBody(g, isPlayer, radius, ent) {
         const blendedAngle = a1 + diff * lagMix;
 
         const dot = Math.cos(angle - blendedAngle);
-        
+
         if (dot < 0) {
           // Back side: Stretch outwards
           const stretch = (dot ** 2) * radius * 0.75 * ent.boostFactor;
@@ -575,13 +575,13 @@ function drawEntityBody(g, isPlayer, radius, ent) {
         }
       }
     }
-    
+
     let vx = pos.x + Math.cos(angle) * r;
     let vy = pos.y + Math.sin(angle) * r;
-    
+
     vx = Math.max(0, Math.min(CONFIG.worldSize, vx));
     vy = Math.max(0, Math.min(CONFIG.worldSize, vy));
-    
+
     vertices.push({ x: vx - pos.x, y: vy - pos.y });
   }
 
@@ -598,7 +598,7 @@ function drawEntityBody(g, isPlayer, radius, ent) {
     const midY = (p1.y + p2.y) / 2;
     g.quadraticCurveTo(p1.x, p1.y, midX, midY);
   }
-  
+
   g.closePath();
   g.fill({ color: isPlayer ? CONFIG.playerColor : CONFIG.npcColor });
 }
@@ -610,7 +610,7 @@ function getDeformedRadius(ent, targetAngle, radius) {
   const distR = CONFIG.worldSize - pos.x;
   const distT = pos.y;
   const distB = CONFIG.worldSize - pos.y;
-  
+
   const limit = radius * 0.4;
   let squeezeX = 0;
   if (distL < radius) squeezeX += (radius - distL);
@@ -625,13 +625,13 @@ function getDeformedRadius(ent, targetAngle, radius) {
   let r = radius;
   r += (Math.sin(targetAngle) ** 2) * squeezeX;
   r += (Math.cos(targetAngle) ** 2) * squeezeY;
-  
+
   let vx = pos.x + Math.cos(targetAngle) * r;
   let vy = pos.y + Math.sin(targetAngle) * r;
-  
+
   vx = Math.max(0, Math.min(CONFIG.worldSize, vx));
   vy = Math.max(0, Math.min(CONFIG.worldSize, vy));
-  
+
   return Math.sqrt(Math.pow(vx - pos.x, 2) + Math.pow(vy - pos.y, 2));
 }
 
@@ -663,33 +663,33 @@ function spawnNode() {
     attempts++;
   } while (tooClose && attempts < 10);
 
-  const isSpecial = Math.random() > 0.85; 
-  
-  const body = Matter.Bodies.circle(x, y, isSpecial ? 12 : 6, { 
-    isSensor: true, 
-    label: isSpecial ? 'specialNode' : 'node' 
+  const isSpecial = Math.random() > 0.85;
+
+  const body = Matter.Bodies.circle(x, y, isSpecial ? 12 : 6, {
+    isSensor: true,
+    label: isSpecial ? 'specialNode' : 'node'
   });
-  
+
   const container = new PIXI.Container();
   container.x = x;
   container.y = y;
-  
+
   const graphics = new PIXI.Graphics();
   if (isSpecial) {
     // CYAN PRISM: Thick, rounded double layered wireframes
     const inner = new PIXI.Graphics();
     const outer = new PIXI.Graphics();
-    
+
     // Outer diamond with thicker, rounded stroke
     outer.poly([-12, 0, 0, -16, 12, 0, 0, 16]);
     outer.stroke({ width: 3, color: 0x00FFFF, alpha: 0.9, join: 'round' });
-    
+
     // Inner solid core
     inner.poly([-6, 0, 0, -9, 6, 0, 0, 9]);
     inner.fill({ color: 0x00FFFF, alpha: 0.5 });
-    
+
     container.addChild(outer, inner);
-    
+
     let t = 0;
     const gUpdate = (d) => {
       t += d.deltaTime * 0.05;
@@ -708,7 +708,7 @@ function spawnNode() {
     graphics.fill({ color: 0xFFFFFF, alpha: 0.3 });
     graphics.stroke({ width: 2, color: 0xFFFFFF, alpha: 0.7, join: 'round' });
     container.addChild(graphics);
-    
+
     let t = Math.random() * 10;
     const gUpdate = (d) => {
       t += d.deltaTime * 0.04;
@@ -721,8 +721,8 @@ function spawnNode() {
     };
     app.ticker.add(gUpdate);
   }
-  
-  nodeLayer.addChild(container); 
+
+  nodeLayer.addChild(container);
   nodes.push({ body, graphics: container, isSpecial });
   Matter.World.add(world, body);
 }
@@ -730,7 +730,7 @@ function spawnNode() {
 function showFloatingText(x, y, text, color = 0x00FF88) {
   // Fix: Don't show if text is 0 or -0
   if (text === 0 || text === "0" || text === "-0") return;
-  
+
   const t = new PIXI.Text({
     text: text,
     style: {
@@ -743,13 +743,13 @@ function showFloatingText(x, y, text, color = 0x00FF88) {
   });
   t.x = x; t.y = y;
   t.anchor.set(0.5);
-  
+
   // Apply inverse scale to text so it stays readable regardless of zoom
   const inverseZoom = 1 / app.stage.scale.x;
   t.scale.set(inverseZoom);
-  
+
   gameContainer.addChild(t);
-  
+
   let life = 1.0;
   const fUpdate = (d) => {
     t.y -= 1.5 * d.deltaTime;
@@ -786,14 +786,14 @@ function update(delta) {
 
     // Update skill cooldown (only if game is actually running)
     if (isGameRunning && skillState) {
-      updateSkillCooldown(skillState, delta.elapsedMS); 
+      updateSkillCooldown(skillState, delta.elapsedMS);
       updateSkillEffects(delta);
       updateCooldownUI();
     }
 
     if (isGameRunning) {
       handleInputs();
-      
+
       // Update rare item spawn timer
       if (rareItemSpawnTimer > 0) {
         rareItemSpawnTimer -= scaledDeltaMS;
@@ -858,7 +858,7 @@ function update(delta) {
 
     const pos = ent.body.position;
     const radius = calculateRadius(ent.mass);
-    
+
     if (shouldUpdatePhysics) {
       ent.body.circleRadius = radius;
       Matter.Body.setMass(ent.body, ent.mass);
@@ -871,7 +871,7 @@ function update(delta) {
         const isTripleDash = skillState.skillId === 'tripleDash' && skillState.isActive;
         const isFlashStep = skillState.skillId === 'flashStep' && (skillState.isChanneling || skillState.isActive);
         const isSprint = skillState.skillId === 'sprint' && (ent.sprintVisualTimer > 0);
-        
+
         if (isDefaultBoost || isOverdrive || isTripleDash || isFlashStep || isSprint) {
           ent.isBoosting = true;
           if (ent.sprintVisualTimer > 0) ent.sprintVisualTimer -= delta.elapsedMS;
@@ -882,7 +882,7 @@ function update(delta) {
 
       const targetBoost = ent.isBoosting ? 1.0 : 0.0;
       ent.boostFactor += (targetBoost - ent.boostFactor) * 0.08;
-      
+
       const isSkillBoost = ent.isPlayer && skillState && !skillState.isDefaultBoost && skillState.isActive;
       if (ent.isBoosting && ent.mass > 20 && !isSkillBoost) {
         ent.mass -= 0.01 * delta.deltaTime;
@@ -909,7 +909,7 @@ function update(delta) {
 
       // SOFT BOUNDARIES & WALL DAMPING
       const springK = 0.05;
-      const wallMargin = radius * 0.3; 
+      const wallMargin = radius * 0.3;
       const damping = 0.85;
 
       if (pos.x < wallMargin) {
@@ -955,7 +955,7 @@ function update(delta) {
               const gainedMass = other.mass * 0.5;
               ent.mass += gainedMass;
               if (ent.isPlayer || other.isPlayer) screenShake = Math.max(screenShake, 40);
-              
+
               if (ent.isPlayer && !other.isPlayer) {
                 killCount++;
                 updateCombo();
@@ -977,7 +977,7 @@ function update(delta) {
     ent.container.y = pos.y;
     ent.massLabel.text = Math.floor(ent.mass);
     ent.nameLabel.y = -radius - 15;
-    
+
     drawEntityBody(ent.graphics, ent.isPlayer, radius, ent);
 
     const inverseZoom = 1 / app.stage.scale.x;
@@ -987,24 +987,23 @@ function update(delta) {
     if (ent.isPlayer && ent.dirIndicator) {
       const vel = ent.body.velocity;
       const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
-      
-      // Calculate Total Speed Multiplier for UI
+
+      // Calculate Total Speed Multiplier for UI (Excluding mass penalty for better player experience)
       let boostMult = 1.0;
       if (skillState) {
         if (skillState.isDefaultBoost && ent.isBoosting) boostMult = 2.0;
         else if (skillState.skillId === 'overdrive' && skillState.isActive) boostMult = skillState.overdriveSpeedMult;
       }
-      const massPenalty = Math.pow(ent.mass / 30, -0.2); // (mass/30)^-0.2
-      const totalMult = boostMult * (ent.speedMult || 1.0) * massPenalty;
+      const totalMult = boostMult * (ent.speedMult || 1.0);
       const displayPct = Math.round((totalMult - 1.0) * 100);
       const sign = displayPct >= 0 ? '+' : '';
-      
+
       if (ent.speedIndicator && ent.speedGroup) {
         ent.speedIndicator.text = `${sign}${displayPct}%`;
         ent.speedGroup.scale.set(inverseZoom);
       }
 
-      if (speed > 0.5) {
+      if (speed > 0.5 && displayPct > 0) {
         ent.dirIndicator.visible = true;
         const targetAngle = Math.atan2(vel.y, vel.x);
         let diff = targetAngle - ent.smoothRotation;
@@ -1013,16 +1012,16 @@ function update(delta) {
         ent.smoothRotation += diff * 0.45;
         ent.dirIndicator.rotation = ent.smoothRotation;
         ent.dirIndicator.scale.set(inverseZoom);
-        
+
         const deformedR = getDeformedRadius(ent, ent.smoothRotation, radius);
         const ringSpacing = 0.15;
         const ringOffsetMult = (ent.lives > 1 ? (ent.lives - 1) * ringSpacing + 0.1 : 0.05);
         const baseDist = deformedR + (radius * ringOffsetMult) + (15 * inverseZoom);
-        
+
         // Position Direction Indicator
         ent.dirIndicator.x = Math.cos(ent.smoothRotation) * baseDist;
         ent.dirIndicator.y = Math.sin(ent.smoothRotation) * baseDist;
-        
+
         // Position Speed Indicator (Always to the absolute LEFT of the character, horizontal)
         if (ent.speedGroup) {
           ent.speedGroup.visible = true;
@@ -1032,7 +1031,7 @@ function update(delta) {
           ent.speedGroup.rotation = 0; // 不跟隨旋轉，保持橫向
         }
       } else {
-        ent.dirIndicator.visible = false;
+        ent.dirIndicator.visible = (speed > 0.5);
         if (ent.speedGroup) ent.speedGroup.visible = false;
       }
     }
@@ -1048,7 +1047,7 @@ function update(delta) {
     const baseZoom = isTouchDevice ? 0.55 : 0.85;
     // 讓視野隨體型成長而縮放得更快（0.0006 -> 0.0012）
     let targetZoom = Math.max(minZoom, baseZoom / (1 + (player.mass - CONFIG.initialMass) * 0.0012));
-    if (player.isBoosting) targetZoom *= 0.85; 
+    if (player.isBoosting) targetZoom *= 0.85;
     app.stage.scale.x += (targetZoom - app.stage.scale.x) * zoomLerp;
     app.stage.scale.y += (targetZoom - app.stage.scale.y) * zoomLerp;
     app.stage.pivot.x += (player.body.position.x - app.stage.pivot.x) * followLerp;
@@ -1060,7 +1059,7 @@ function update(delta) {
     app.stage.pivot.x += (CONFIG.worldSize / 2 - app.stage.pivot.x) * followLerp;
     app.stage.pivot.y += (CONFIG.worldSize / 2 - app.stage.pivot.y) * followLerp;
   }
-  
+
   if (screenShake > 0) {
     app.stage.position.x = app.screen.width / 2 + (Math.random() - 0.5) * screenShake;
     app.stage.position.y = app.screen.height / 2 + (Math.random() - 0.5) * screenShake;
@@ -1078,7 +1077,7 @@ function update(delta) {
     const secs = Math.floor((elapsedTime % 60000) / 1000).toString().padStart(2, '0');
     const timerEl = document.getElementById('timer-text');
     if (timerEl) timerEl.innerText = `${mins}:${secs}`;
-    
+
     boostTextTimer += delta.deltaTime;
     if (boostTextTimer > 30) {
       if (boostAccumulator > 1) {
@@ -1111,7 +1110,7 @@ function update(delta) {
         const pct = Math.max(0, (COMBO_WINDOW - elapsed) / COMBO_WINDOW) * 100;
         bar.style.width = `${pct}%`;
       }
-      
+
       // 動態調整火焰強度
       const overlay = document.getElementById('combo-overlay');
       if (overlay) {
@@ -1169,7 +1168,7 @@ function handleInputs() {
     const diff = Matter.Vector.sub(worldMouse, player.body.position);
     const dist = Matter.Vector.magnitude(diff);
     const radius = calculateRadius(player.mass);
-    
+
     if (dist < 1) {
       joystick.vector = { x: 0, y: 0 };
     } else {
@@ -1191,7 +1190,7 @@ function handleInputs() {
     }
     const finalMult = boostMult * (player.speedMult || 1.0);
     const force = CONFIG.baseForce * Math.pow(player.mass / 30, 0.8) * finalMult;
-    
+
     // Steering Improvement: 
     // 當玩家快速轉向時，消減與目標方向不一致的動量，提升轉向靈敏度
     const currentVel = player.body.velocity;
@@ -1200,7 +1199,7 @@ function handleInputs() {
       const normVel = { x: currentVel.x / speed, y: currentVel.y / speed };
       // 計算當前速度與目標方向的點積
       const dot = normVel.x * joystick.vector.x + normVel.y * joystick.vector.y;
-      if (dot < 0.6) { 
+      if (dot < 0.6) {
         // 點積小於 0.6 表示轉向角度較大，應用阻尼
         const damping = 0.92;
         Matter.Body.setVelocity(player.body, {
@@ -1210,8 +1209,8 @@ function handleInputs() {
       }
     }
 
-    Matter.Body.applyForce(player.body, player.body.position, { 
-      x: joystick.vector.x * force, 
+    Matter.Body.applyForce(player.body, player.body.position, {
+      x: joystick.vector.x * force,
       y: joystick.vector.y * force
     });
   }
@@ -1223,12 +1222,12 @@ function triggerBoostParticles(ent) {
   const s = 3 + Math.random() * 4; // Slightly larger
   frag.circle(0, 0, s);
   frag.fill({ color: 0xFFFFFF, alpha: 0.8 }); // Higher opacity
-  
+
   // Spawn behind movement
   const vel = ent.body.velocity;
-  const angle = Math.atan2(vel.y, vel.x) + Math.PI + (Math.random()-0.5) * 0.5;
+  const angle = Math.atan2(vel.y, vel.x) + Math.PI + (Math.random() - 0.5) * 0.5;
   const radius = calculateRadius(ent.mass);
-  
+
   frag.x = ent.body.position.x + Math.cos(angle) * radius;
   frag.y = ent.body.position.y + Math.sin(angle) * radius;
   app.stage.addChildAt(frag, 1); // Below entities
@@ -1236,7 +1235,7 @@ function triggerBoostParticles(ent) {
   const vx = Math.cos(angle) * 2;
   const vy = Math.sin(angle) * 2;
   let life = 1.0;
-  
+
   const fUpdate = (d) => {
     frag.x += vx * d.deltaTime;
     frag.y += vy * d.deltaTime;
@@ -1262,7 +1261,7 @@ function triggerSpawnVFX(x, y) {
     r += 12 * d.deltaTime;
     ring.clear();
     ring.circle(x, y, r);
-    ring.stroke({ width: 2, color: 0xFFFFFF, alpha: 1 - r/400 });
+    ring.stroke({ width: 2, color: 0xFFFFFF, alpha: 1 - r / 400 });
     if (r > 400) { app.stage.removeChild(ring); app.ticker.remove(rUpdate); }
   };
   app.ticker.add(rUpdate);
@@ -1276,7 +1275,7 @@ function triggerRespawnVFX(x, y) {
     r += 15 * d.deltaTime;
     ring.clear();
     ring.circle(x, y, r);
-    ring.stroke({ width: 4, color: 0x00FFFF, alpha: 1 - r/300 });
+    ring.stroke({ width: 4, color: 0x00FFFF, alpha: 1 - r / 300 });
     if (r > 300) { app.stage.removeChild(ring); app.ticker.remove(rUpdate); }
   };
   app.ticker.add(rUpdate);
@@ -1286,17 +1285,17 @@ function triggerNodePickupVFX(x, y, color) {
   for (let i = 0; i < 6; i++) {
     const p = new PIXI.Graphics();
     const size = 2 + Math.random() * 3;
-    p.rect(-size/2, -size/2, size, size);
+    p.rect(-size / 2, -size / 2, size, size);
     p.fill({ color: color, alpha: 0.8 });
     p.x = x; p.y = y;
     app.stage.addChild(p);
-    
+
     const angle = Math.random() * Math.PI * 2;
     const speed = 2 + Math.random() * 4;
     const vx = Math.cos(angle) * speed;
     const vy = Math.sin(angle) * speed;
     let life = 1.0;
-    
+
     const pUpdate = (d) => {
       p.x += vx * d.deltaTime;
       p.y += vy * d.deltaTime;
@@ -1316,17 +1315,17 @@ function triggerRarePickupVFX(x, y) {
   for (let i = 0; i < 24; i++) {
     const p = new PIXI.Graphics();
     const size = 4 + Math.random() * 6;
-    p.poly([0, -size, size/2, size/2, -size/2, size/2]);
+    p.poly([0, -size, size / 2, size / 2, -size / 2, size / 2]);
     p.fill({ color: 0xFFD700, alpha: 1 });
     p.x = x; p.y = y;
     app.stage.addChild(p);
-    
+
     const angle = Math.random() * Math.PI * 2;
     const speed = 5 + Math.random() * 10;
     const vx = Math.cos(angle) * speed;
     const vy = Math.sin(angle) * speed;
     let life = 1.0;
-    
+
     const pUpdate = (d) => {
       p.x += vx * d.deltaTime;
       p.y += vy * d.deltaTime;
@@ -1363,7 +1362,7 @@ function updateCombo() {
   if (comboCount > 1) {
     const buff = getComboBuff();
     const reductionPct = Math.round((1 - buff) * 100);
-    const buffType = (skillState && !skillState.isDefaultBoost) ? 
+    const buffType = (skillState && !skillState.isDefaultBoost) ?
       (getSkillDef(skillState.skillId).energyRequired ? 'ENG' : 'CD') : 'Cost';
 
     overlay.classList.add('active');
@@ -1396,14 +1395,14 @@ function showMassFeed(amount, type) {
   item.className = `mass-feed-item mass-${type}`;
   const sign = amount > 0 ? '+' : '';
   item.textContent = `${sign}${Math.floor(amount)}`;
-  
+
   // 保持 Feed 簡潔，若超過 5 個則移除最舊的
   if (container.children.length > 5) {
     container.removeChild(container.firstChild);
   }
-  
+
   container.appendChild(item);
-  
+
   // 1.5 秒後自動消失
   setTimeout(() => {
     item.style.transition = 'all 0.4s ease';
@@ -1421,28 +1420,28 @@ function showMassFeed(amount, type) {
 function triggerScreenEffect(type, customColor = null) {
   const container = document.getElementById('screen-effects-overlay');
   if (!container) return;
-  
+
   const fx = document.createElement('div');
   fx.className = type === 'legendary' ? 'fx-legendary-glow' : 'fx-virus-hit';
   if (customColor) {
     fx.style.boxShadow = `inset 0 0 120px ${customColor}, inset 0 0 250px ${customColor}44`;
   }
   container.appendChild(fx);
-  
+
   // 新增規律的波普點 (Halftone Pattern)
   const halftone = document.createElement('div');
   halftone.className = 'fx-halftone';
-  
+
   let finalColor = customColor || (type === 'legendary' ? '#FFD700' : '#FF0000');
   halftone.style.color = finalColor;
   fx.appendChild(halftone);
-  
+
   setTimeout(() => fx.remove(), 3000);
 }
 
 function checkCollisions(ent) {
   if (ent.isDestroyed) return;
-  
+
   const pos = ent.body.position;
   const radius = calculateRadius(ent.mass);
 
@@ -1455,18 +1454,18 @@ function checkCollisions(ent) {
     const dx = nPos.x - pos.x;
     const dy = nPos.y - pos.y;
     const dSq = dx * dx + dy * dy;
-    
+
     if (dSq < radius * radius) {
       let addedMass = node.customMass || (node.isSpecial ? CONFIG.specialNodeMass : CONFIG.nodeMass);
-      
+
       // UNIFIED: All entities gain 100% mass from nodes
       // No more NPC nerf
-      
+
       if (ent.isBoosting) addedMass *= 0.5; // Penalty for eating while boosting
-      
+
       const finalGrowthEff = ent.growthEfficiency !== undefined ? ent.growthEfficiency : (ent.efficiency || 1.0);
       ent.mass += addedMass * finalGrowthEff;
-      
+
       if (ent.isPlayer) {
         showMassFeed(addedMass * finalGrowthEff, 'green');
         triggerNodePickupVFX(nPos.x, nPos.y, node.isSpecial ? 0x00FFFF : 0xFFFFFF);
@@ -1477,7 +1476,7 @@ function checkCollisions(ent) {
       }
 
       nodeLayer.removeChild(node.graphics);
-      node.body.isDestroyed = true; 
+      node.body.isDestroyed = true;
       Matter.World.remove(world, node.body);
       nodes.splice(i, 1);
       spawnNode();
@@ -1492,19 +1491,19 @@ function checkCollisions(ent) {
       if (p.type === 'rareItem' && ent.isPlayer) {
         const tier = CONFIG.rareItemTiers[p.tierKey || 'white'];
         ent.mass += tier.mass;
-        ent.speedMult += tier.speed; 
-        
+        ent.speedMult += tier.speed;
+
         // 觸發對應顏色的特效
         const hexColor = '#' + (tier.color).toString(16).padStart(6, '0');
         if (tier.label === 'IRIDESCENT') triggerScreenEffect('legendary');
-        
+
         // 補充技能能量
         if (skillState) addSkillEnergy(skillState, tier.mass);
-        
+
         showMassFeed(tier.mass, 'rainbow');
-        screenShake = Math.max(screenShake, p.tierKey === 'iridescent' ? 100 : 60); 
+        screenShake = Math.max(screenShake, p.tierKey === 'iridescent' ? 100 : 60);
         triggerRarePickupVFX(p.body.position.x, p.body.position.y);
-        
+
         p.body.isDestroyed = true;
         Matter.World.remove(world, p.body);
         powerups.splice(i, 1);
@@ -1523,11 +1522,11 @@ function checkCollisions(ent) {
         const dist = Math.sqrt(dSq);
         const overlap = (radius + rV) - dist;
         const pushDir = Matter.Vector.normalise(Matter.Vector.sub(pos, v.body.position));
-        
+
         // Very soft push when overlapping, allowing them to "hide" but feel the edge
         const springK = 0.0015; // Increased repulsion (was 0.0002)
         Matter.Body.applyForce(ent.body, pos, Matter.Vector.mult(pushDir, overlap * springK));
-        
+
         // Slight damping inside virus to feel "fluid"
         Matter.Body.setVelocity(ent.body, Matter.Vector.mult(ent.body.velocity, 0.98));
       } else {
@@ -1543,13 +1542,13 @@ function checkCollisions(ent) {
             triggerScreenEffect('virus');
             showMassFeed(-massLoss, 'red');
           }
-          
+
           // Destroy the virus after one split
           virusLayer.removeChild(v.graphics);
           Matter.World.remove(world, v.body);
           viruses.splice(i, 1);
           i--;
-          
+
           // Respawn a new virus elsewhere after a delay (via update loop)
           virusRespawnTimer = 15000;
         }
@@ -1562,23 +1561,23 @@ function checkCollisions(ent) {
 
 function shatterEntity(ent) {
   if (ent.isDestroyed || ent.protectionTime > 0) return;
-  
+
   // Basic shake if player is involved
   if (ent.isPlayer) screenShake = Math.max(screenShake, 30);
-  
+
   ent.protectionTime = 180; // Lock immediately to prevent multi-death
 
   if (ent.lives > 1) {
     ent.lives--;
-    ent.mass = Math.max(CONFIG.initialMass, ent.mass * 0.8); 
-    
+    ent.mass = Math.max(CONFIG.initialMass, ent.mass * 0.8);
+
     if (ent.isPlayer) {
       ent.isRespawning = true;
       updateLivesUI();
       showFloatingText(ent.body.position.x, ent.body.position.y, `-20%`, 0xFF4444);
-      
+
       ent.container.visible = false;
-      Matter.Body.setPosition(ent.body, { x: -5000, y: -5000 }); 
+      Matter.Body.setPosition(ent.body, { x: -5000, y: -5000 });
       Matter.Body.setVelocity(ent.body, { x: 0, y: 0 });
 
       startRespawnSequence(() => {
@@ -1587,7 +1586,7 @@ function shatterEntity(ent) {
         Matter.Body.setPosition(ent.body, { x: rx, y: ry });
         ent.container.visible = true;
         ent.isRespawning = false;
-        ent.protectionTime = 180; 
+        ent.protectionTime = 180;
         triggerRespawnVFX(rx, ry);
       });
     } else {
@@ -1621,7 +1620,7 @@ function shatterEntity(ent) {
   for (let i = 0; i < 25; i++) {
     const frag = new PIXI.Graphics();
     const s = 4 + Math.random() * 4;
-    frag.rect(-s/2, -s/2, s, s);
+    frag.rect(-s / 2, -s / 2, s, s);
     frag.fill({ color: 0xFFFFFF, alpha: 0.8 });
     frag.x = ent.body.position.x; frag.y = ent.body.position.y;
     app.stage.addChild(frag);
@@ -1652,11 +1651,11 @@ function setupInputs() {
   });
 
   const skillBtn = document.getElementById('skill-btn');
-  
+
   // Skill activation (replaces old boost)
   const activateSkill = (e) => {
     if (isGameOver || isPaused || isTutorialActive() || !player || !skillState) return;
-    
+
     skillBtn.classList.add('active');
 
     // 如果是觸控，啟動拖動瞄準模式
@@ -1700,7 +1699,7 @@ function setupInputs() {
   };
 
   skillBtn.addEventListener('mousedown', (e) => activateSkill(e));
-  
+
   // [NEW] PC Mode: Global left-click to activate skill
   window.addEventListener('mousedown', (e) => {
     // 只有真正的滑鼠左鍵 (button 0) 且不是從觸控模擬的點擊才觸發
@@ -1714,17 +1713,17 @@ function setupInputs() {
   });
 
   window.addEventListener('mouseup', deactivateSkill);
-  skillBtn.addEventListener('touchstart', (e) => { 
-    e.preventDefault(); 
-    e.stopPropagation(); 
-    activateSkill(e); 
+  skillBtn.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    activateSkill(e);
   });
   window.addEventListener('touchend', (e) => deactivateSkill(e));
 
   // 處理技能拖動瞄準 (Mobile Drag Aim)
   window.addEventListener('touchmove', (e) => {
     if (!skillDrag.active || !skillState.isChanneling) return;
-    
+
     // 尋找對應的觸摸點
     let touch = null;
     for (let i = 0; i < e.touches.length; i++) {
@@ -1737,11 +1736,11 @@ function setupInputs() {
 
     const dx = touch.clientX - skillDrag.startX;
     const dy = touch.clientY - skillDrag.startY;
-    const dist = Math.sqrt(dx*dx + dy*dy);
+    const dist = Math.sqrt(dx * dx + dy * dy);
     const maxDrag = 80; // 拖動 80px 達到最大射程
     const normalizedDist = Math.min(dist, maxDrag) / maxDrag;
     const angle = Math.atan2(dy, dx);
-    
+
     skillDrag.vector = {
       x: Math.cos(angle) * normalizedDist,
       y: Math.sin(angle) * normalizedDist
@@ -1773,19 +1772,19 @@ function setupInputs() {
     const centerY = rect.top + rect.height / 2;
     const dx = touch.clientX - centerX;
     const dy = touch.clientY - centerY;
-    const dist = Math.sqrt(dx*dx + dy*dy);
+    const dist = Math.sqrt(dx * dx + dy * dy);
     const max = 50;
     const nD = Math.min(dist, max);
     const angle = Math.atan2(dy, dx);
-    joystick.vector = { x: Math.cos(angle) * (nD/max), y: Math.sin(angle) * (nD/max) };
-    joyThumb.style.transform = `translate(calc(-50% + ${Math.cos(angle)*nD}px), calc(-50% + ${Math.sin(angle)*nD}px))`;
+    joystick.vector = { x: Math.cos(angle) * (nD / max), y: Math.sin(angle) * (nD / max) };
+    joyThumb.style.transform = `translate(calc(-50% + ${Math.cos(angle) * nD}px), calc(-50% + ${Math.sin(angle) * nD}px))`;
   };
 
   joyZone.addEventListener('mousedown', () => joystick.active = true);
-  joyZone.addEventListener('touchstart', (e) => { 
-    e.preventDefault(); 
+  joyZone.addEventListener('touchstart', (e) => {
+    e.preventDefault();
     e.stopPropagation();
-    joystick.active = true; 
+    joystick.active = true;
     joystick.touchId = e.changedTouches[0].identifier;
   });
 
@@ -1794,13 +1793,13 @@ function setupInputs() {
     if (joystick.active) handleJoy(e);
   });
 
-  window.addEventListener('mouseup', () => { 
-    joystick.active = false; 
+  window.addEventListener('mouseup', () => {
+    joystick.active = false;
     joystick.touchId = null;
-    joyThumb.style.transform = 'translate(-50%, -50%)'; 
-    joystick.vector = { x: 0, y: 0 }; 
+    joyThumb.style.transform = 'translate(-50%, -50%)';
+    joystick.vector = { x: 0, y: 0 };
   });
-  window.addEventListener('touchend', (e) => { 
+  window.addEventListener('touchend', (e) => {
     if (joystick.active && e.changedTouches) {
       let match = false;
       for (let i = 0; i < e.changedTouches.length; i++) {
@@ -1810,10 +1809,10 @@ function setupInputs() {
         }
       }
       if (match) {
-        joystick.active = false; 
+        joystick.active = false;
         joystick.touchId = null;
-        joyThumb.style.transform = 'translate(-50%, -50%)'; 
-        joystick.vector = { x: 0, y: 0 }; 
+        joyThumb.style.transform = 'translate(-50%, -50%)';
+        joystick.vector = { x: 0, y: 0 };
       }
     }
   });
@@ -1842,35 +1841,35 @@ function spawnVirus() {
   }
   // Refill nodes to match nodeCount
   while (nodes.length < CONFIG.nodeCount) spawnNode();
-  
+
   const body = Matter.Bodies.circle(x, y, radius, { isStatic: true, isSensor: true, label: 'virus' });
   const graphics = new PIXI.Graphics();
-  
+
   const v = { body, graphics, t: Math.random() * 10 };
-  
+
   const vUpdate = (d) => {
     v.t += d.deltaTime * 0.03;
     const pulse = Math.sin(v.t) * 8;
     graphics.clear();
-    
+
     // Draw highly rounded spiky ball using Bezier curves
     const points = 10;
     const innerR = radius + pulse;
     const outerR = radius + 25 + pulse;
-    
+
     graphics.beginPath();
     for (let i = 0; i < points; i++) {
       const angle = (i / points) * Math.PI * 2 + v.t * 0.1;
       const nextAngle = ((i + 1) / points) * Math.PI * 2 + v.t * 0.1;
       const midAngle = (angle + nextAngle) / 2;
-      
+
       const startX = Math.cos(angle) * innerR;
       const startY = Math.sin(angle) * innerR;
       const peakX = Math.cos(midAngle) * outerR;
       const peakY = Math.sin(midAngle) * outerR;
       const endX = Math.cos(nextAngle) * innerR;
       const endY = Math.sin(nextAngle) * innerR;
-      
+
       if (i === 0) graphics.moveTo(startX, startY);
       // Use quadraticCurveTo for rounded peaks
       graphics.quadraticCurveTo(peakX, peakY, endX, endY);
@@ -1878,11 +1877,11 @@ function spawnVirus() {
     graphics.closePath();
     graphics.fill({ color: 0x330055, alpha: 1.0 });
     graphics.stroke({ width: 6, color: 0xAA00FF, alpha: 1, join: 'round' });
-    
+
     graphics.x = body.position.x;
     graphics.y = body.position.y;
   };
-  
+
   app.ticker.add(vUpdate);
   virusLayer.addChild(graphics);
   viruses.push(v);
@@ -1891,7 +1890,7 @@ function spawnVirus() {
 
 function spawnRareItem() {
   if (isGameOver || !isGameRunning) return;
-  
+
   // 1. 決定是否生成 (每30秒有一定機率)
   rareItemSpawnTimer = 30000; // Reset timer for next attempt
 
@@ -1904,19 +1903,19 @@ function spawnRareItem() {
   let tierKey = 'white';
   if (rng < CONFIG.rareItemTiers.iridescent.prob) tierKey = 'iridescent';
   else if (rng < CONFIG.rareItemTiers.iridescent.prob + CONFIG.rareItemTiers.gold.prob) tierKey = 'gold';
-  
+
   const tier = CONFIG.rareItemTiers[tierKey];
-  
+
   let x, y;
   const player = entities.find(e => e.isPlayer);
   let attempts = 0;
-  
+
   do {
     x = Math.random() * CONFIG.worldSize;
     y = Math.random() * CONFIG.worldSize;
     attempts++;
-  } while (player && Matter.Vector.magnitude(Matter.Vector.sub({x, y}, player.body.position)) < 1200 && attempts < 10);
-  
+  } while (player && Matter.Vector.magnitude(Matter.Vector.sub({ x, y }, player.body.position)) < 1200 && attempts < 10);
+
   const body = Matter.Bodies.circle(x, y, 40, { isSensor: true, label: 'rareItem' });
   const container = new PIXI.Container();
   container.x = x; container.y = y;
@@ -1944,11 +1943,11 @@ function spawnRareItem() {
   const update = (d) => {
     t += 0.05 * d.deltaTime;
     graphics.clear();
-    
+
     const points = 32;
     const radius = 40;
     const time = Date.now() * 0.003 + wobbleOffset;
-    
+
     // 虹彩顏色變換
     let currentColor = tier.color;
     if (tierKey === 'iridescent') {
@@ -1985,10 +1984,10 @@ function spawnRareItem() {
 
   powerups.push({ body, container, type: 'rareItem', tierKey, tierColor: tier.color });
   Matter.World.add(world, body);
-  
+
   // 小地圖波普擴散特效
   miniVFX.push({
-    x, y, 
+    x, y,
     color: '#' + (tier.color).toString(16).padStart(6, '0'),
     life: 1.0,
     maxRadius: 60
@@ -2002,12 +2001,12 @@ function releaseFragments(x, y, totalMass, triggerer) {
   const massPerFrag = totalMass / count;
   const trigRadius = calculateRadius(triggerer.mass);
   const fragRadius = calculateRadius(30); // Size of 30 mass entity
-  
+
   for (let i = 0; i < count; i++) {
     const angle = Math.random() * Math.PI * 2;
     const body = Matter.Bodies.circle(x, y, fragRadius, { isSensor: true, label: 'node' });
     const graphics = new PIXI.Graphics();
-    
+
     // Draw MINI-VIRUS spikes
     const points = 8;
     const innerR = fragRadius * 0.7;
@@ -2029,24 +2028,24 @@ function releaseFragments(x, y, totalMass, triggerer) {
     graphics.closePath();
     graphics.fill({ color: 0x330055, alpha: 1.0 });
     graphics.stroke({ width: 3, color: 0xAA00FF, alpha: 1, join: 'round' });
-    
+
     nodeLayer.addChild(graphics); // Ensure it's on the correct layer
-    const nodeObj = { body, graphics, isSpecial: true, customMass: massPerFrag, pickupDelay: 100 }; 
+    const nodeObj = { body, graphics, isSpecial: true, customMass: massPerFrag, pickupDelay: 100 };
     nodes.push(nodeObj);
     Matter.World.add(world, body);
-    
+
     // Initial burst: Scaled back to be "just right" (about 2x original)
-    const burstForce = (trigRadius / 6) + 35 + Math.random() * 20; 
-    Matter.Body.setVelocity(body, { 
-      x: Math.cos(angle) * burstForce, 
-      y: Math.sin(angle) * burstForce 
+    const burstForce = (trigRadius / 6) + 35 + Math.random() * 20;
+    Matter.Body.setVelocity(body, {
+      x: Math.cos(angle) * burstForce,
+      y: Math.sin(angle) * burstForce
     });
 
     const fUpdate = (d) => {
       // DYNAMIC PICKUP: Only allow pickup when fragment has slowed down significantly
       const vel = body.velocity;
       const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
-      
+
       if (speed < 2.0) {
         nodeObj.pickupDelay = 0;
         graphics.alpha = 0.9;
@@ -2180,7 +2179,7 @@ function renderMinimap() {
     const x = p.body.position.x * scale;
     const y = p.body.position.y * scale;
     const hexColor = '#' + (p.tierColor || 0xFFFFFF).toString(16).padStart(6, '0');
-    
+
     miniCtx.fillStyle = hexColor;
     miniCtx.shadowBlur = 8;
     miniCtx.shadowColor = hexColor;
@@ -2197,10 +2196,10 @@ function renderMinimap() {
     const vx = vfx.x * scale;
     const vy = vfx.y * scale;
     const currentRadius = (1 - vfx.life) * vfx.maxRadius;
-    
+
     miniCtx.fillStyle = vfx.color;
     miniCtx.globalAlpha = vfx.life;
-    
+
     // Draw halftone ring on minimap
     const dots = 12;
     for (let i = 0; i < dots; i++) {
@@ -2208,7 +2207,7 @@ function renderMinimap() {
       const dotX = vx + Math.cos(angle) * currentRadius;
       const dotY = vy + Math.sin(angle) * currentRadius;
       const dotSize = 2 + vfx.life * 2;
-      
+
       miniCtx.beginPath();
       miniCtx.arc(dotX, dotY, dotSize, 0, Math.PI * 2);
       miniCtx.fill();
@@ -2237,7 +2236,7 @@ function saveHistory(time) {
 function loadHistory() {
   const history = JSON.parse(localStorage.getItem('null-vector-history') || '[]');
   const list = document.getElementById('history-list');
-  
+
   if (history.length === 0) {
     list.innerHTML = `
       <div class="history-empty">
@@ -2248,7 +2247,7 @@ function loadHistory() {
     return;
   }
 
-  const best = history[0]; 
+  const best = history[0];
   const totalWins = history.length;
 
   const trophyIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"></path><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"></path><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"></path></svg>`;
@@ -2295,7 +2294,7 @@ function loadHistory() {
     </div>
   `).join('');
   html += '</div>';
-  
+
   list.innerHTML = html;
 }
 
@@ -2312,10 +2311,10 @@ window.returnToMenu = () => {
   isGameOver = false;
   isPaused = false;
   app.ticker.speed = 1; // 確保速度恢復
-  
+
   const fpsDisplay = document.getElementById('fps-display');
   if (fpsDisplay) fpsDisplay.style.display = 'none';
-  
+
   // 清理世界並重新生成原有的演示背景物件 (4個特定 NPC)
   clearWorld();
   for (let i = 0; i < 4; i++) {
@@ -2339,12 +2338,12 @@ window.returnToMenu = () => {
   document.getElementById('reward-screen').style.display = 'none';
   startMenu.style.display = 'flex';
   document.querySelector('.ui-overlay').style.display = 'none';
-  
+
   // 觸發進場動畫
   startMenu.classList.remove('animate-in');
   void startMenu.offsetWidth; // 觸發 reflow
   startMenu.classList.add('animate-in');
-  
+
   // Refresh main screen info
   refreshProgressDisplay();
   renderSkillsPage();
@@ -2357,7 +2356,7 @@ function togglePause() {
   isPaused = !isPaused;
   const pauseMenu = document.getElementById('pause-menu');
   const uiOverlay = document.querySelector('.ui-overlay');
-  
+
   if (isPaused) {
     pauseMenu.style.display = 'flex';
     uiOverlay.style.display = 'none';
@@ -2457,7 +2456,7 @@ function initProgressionUI() {
 function refreshProgressDisplay() {
   const pct = getLevelProgress(progress);
   const levelLabel = document.getElementById('level-label');
-  
+
   // Calculate raw XP for display
   const startXP = getXPForCurrentLevel(progress.level);
   const nextLevelXP = getXPForNextLevel(progress.level);
@@ -2476,19 +2475,19 @@ function refreshProgressDisplay() {
     document.getElementById('xp-bar-fill').style.width = `${Math.round(pct * 100)}%`;
     document.getElementById('xp-percent').textContent = `${Math.round(pct * 100)}%`;
   }
-  
+
   // Update Numerical XP Text
   const xpText = document.getElementById('xp-text');
   if (xpText) xpText.textContent = xpStr;
-  
+
   document.getElementById('gold-amount').textContent = progress.gold;
-  
+
   // [NEW] Sync Mobile Stats Corner
   const mLevel = document.getElementById('m-level');
   const mGold = document.getElementById('m-gold');
   const mXpFill = document.getElementById('m-xp-fill');
   const mXpText = document.getElementById('m-xp-text');
-  
+
   if (mLevel) mLevel.textContent = progress.level >= MAX_LEVEL ? 'MAX' : progress.level;
   if (mGold) mGold.textContent = progress.gold;
   if (mXpFill) mXpFill.style.width = `${Math.round(pct * 100)}%`;
@@ -2532,12 +2531,12 @@ function renderSkillsPage() {
       card.classList.add('locked');
       const cost = unlockCosts[id];
       const lvlReq = levelReqs[id];
-      
+
       let btnLabel = `${cost} 技能點`;
       if (id === 'sprint' && progress.level < 2) {
         btnLabel = 'Lv.2 解鎖';
       }
-      
+
       const canUnlock = progress.level >= lvlReq && progress.skillPoints >= cost;
       actionsEl.innerHTML = `<button class="btn-unlock" ${!canUnlock ? 'disabled' : ''} data-action="unlock" data-skill="${id}">${btnLabel}</button>`;
     } else {
@@ -2643,7 +2642,7 @@ function executeSprint() {
   // Dash in current movement direction
   const vel = player.body.velocity;
   let angle = Math.atan2(vel.y, vel.x);
-  
+
   if (isTouchDevice && joystick.vector.x !== 0) {
     // 手機模式：優先使用搖桿指向
     angle = Math.atan2(joystick.vector.y, joystick.vector.x);
@@ -2661,12 +2660,12 @@ function executeSprint() {
     x: Math.cos(angle) * force,
     y: Math.sin(angle) * force
   });
-  
+
   // VFX: Trail
   const radius = calculateRadius(player.mass);
-  for(let i=0; i<5; i++) {
+  for (let i = 0; i < 5; i++) {
     setTimeout(() => {
-      if(player) createTrail(player.body.position.x, player.body.position.y, radius, 0xFFFFFF, 0.4, 400);
+      if (player) createTrail(player.body.position.x, player.body.position.y, radius, 0xFFFFFF, 0.4, 400);
     }, i * 40);
   }
 
@@ -2680,8 +2679,8 @@ function startOverdrive() {
   skillState.overdrivePhase = 'rampUp';
   skillState.overdriveElapsed = 0;
   skillState.overdriveSpeedMult = 1.01;
-  player.isBoosting = true; 
-  
+  player.isBoosting = true;
+
   // 立即進入「充能模式」，並套用 Combo 帶來的能量減免
   startCooldown(skillState, getComboBuff());
   // 強制重新標記為活躍，因為 startCooldown 會將其設為 false
@@ -2709,7 +2708,7 @@ function executeTripleDash() {
 
 function performSingleDash(cost) {
   if (!player || player.isDestroyed) return;
-  
+
   const buff = getComboBuff();
   // Use percentage-based mass cost for Triple Dash
   const actualCost = Math.floor(player.mass * 0.015 * buff); // 1.5% mass * buff
@@ -2738,9 +2737,9 @@ function performSingleDash(cost) {
   createTrail(player.body.position.x, player.body.position.y, radius, 0xFFFFFF, 0.6, 500);
   triggerShockwave(player.body.position.x, player.body.position.y, 0xFFFFFF);
 
-  screenShake = Math.max(screenShake, 12); 
+  screenShake = Math.max(screenShake, 12);
   skillState.tripleDashRemaining--;
-  
+
   if (skillState.tripleDashRemaining <= 0) {
     startCooldown(skillState, getComboBuff());
   }
@@ -2754,7 +2753,7 @@ function startFlashStepChannel() {
   skillState.isChanneling = true;
   skillState.isActive = true;
   timeScale = SKILL_DEFS.flashStep.slowMotionScale;
-  
+
   // Add visual effect class
   document.body.classList.add('skill-channeling');
 
@@ -2814,7 +2813,7 @@ async function executeFlashStep() {
     targetX = player.body.position.x + norm.x * clampedDist;
     targetY = player.body.position.y + norm.y * clampedDist;
   }
-  
+
   // 邊界限制
   targetX = Math.max(100, Math.min(CONFIG.worldSize - 100, targetX));
   targetY = Math.max(100, Math.min(CONFIG.worldSize - 100, targetY));
@@ -2822,12 +2821,12 @@ async function executeFlashStep() {
   const startX = player.body.position.x;
   const startY = player.body.position.y;
   const startPos = { x: startX, y: startY };
-  
+
   // NEW: Fast Dash instead of teleport
   const dashSteps = 2; // Reduced for faster movement
-  
+
   let killedSomething = false;
-  
+
   // Animation for fast movement
   for (let i = 1; i <= dashSteps; i++) {
     const t = i / dashSteps;
@@ -2847,33 +2846,33 @@ async function executeFlashStep() {
   entities.forEach(ent => {
     if (ent === player || ent.isDestroyed || ent.isPlayer) return;
     if (ent.mass >= player.mass) return;
-    
+
     const diff = Matter.Vector.sub(ent.body.position, { x: targetX, y: targetY });
     const dist = Matter.Vector.magnitude(diff);
     const entRadius = calculateRadius(ent.mass);
-    
+
     if (dist < radius + entRadius) {
       const gainedMass = ent.mass * 0.5;
       player.mass += gainedMass;
       killCount++;
       killedSomething = true;
-      
+
       updateCombo();
       showMassFeed(gainedMass, 'green');
-      
+
       // 補充技能能量 (擊殺轉化率降低為 10%)
       if (skillState) addSkillEnergy(skillState, gainedMass * 0.1);
-      
+
       // TRIGGER SHAKE WITH SLIGHT DELAY (to avoid being cancelled by high-speed movement interpolation)
       setTimeout(() => {
-        screenShake = Math.max(screenShake, 60); 
-      }, 50); 
-      
+        screenShake = Math.max(screenShake, 60);
+      }, 50);
+
       shatterEntity(ent);
-      
+
       // Blade slash effect (Now just at hit point)
       drawBladeSlash(startPos, { x: targetX, y: targetY });
-      
+
       // Brief Time Freeze on kill
       timeScale = 0;
       setTimeout(() => { if (!skillState.isChanneling) timeScale = 1.0; }, 150);
@@ -2881,7 +2880,7 @@ async function executeFlashStep() {
   });
 
   // VFX
-  
+
   cleanupFlashStepVisuals();
   startCooldown(skillState, getComboBuff());
   skillState.isActive = false;
@@ -2893,7 +2892,7 @@ function drawBladeSlash(start, end) {
   slash.lineTo(end.x, end.y);
   slash.stroke({ width: 2, color: 0xFFFFFF, alpha: 0.8, cap: 'round' }); // Thin white line
   gameContainer.addChild(slash);
-  
+
   let alpha = 0.8;
   const anim = (d) => {
     alpha -= 0.05 * d.deltaTime;
@@ -3057,20 +3056,20 @@ function updateCooldownUI() {
     chargeBadge.remove();
   }
 
-    
-    if (cdProgress > 0) {
-      if (!overlay) {
-        overlay = document.createElement('div');
-        overlay.className = 'cooldown-overlay';
-        skillBtn.appendChild(overlay);
-      }
-      if (!cdText) {
-        cdText = document.createElement('div');
-        cdText.className = 'cooldown-text';
-        skillBtn.appendChild(cdText);
-      }
-      
-      const def = SKILL_DEFS[skillState.skillId];
+
+  if (cdProgress > 0) {
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.className = 'cooldown-overlay';
+      skillBtn.appendChild(overlay);
+    }
+    if (!cdText) {
+      cdText = document.createElement('div');
+      cdText.className = 'cooldown-text';
+      skillBtn.appendChild(cdText);
+    }
+
+    const def = SKILL_DEFS[skillState.skillId];
     const nameEl = skillBtn.querySelector('.skill-name');
     const iconEl = skillBtn.querySelector('.skill-icon');
 
@@ -3080,12 +3079,12 @@ function updateCooldownUI() {
       const total = getSkillParam(def, 'energyRequired', skillState.level);
       const current = total - skillState.cooldownRemaining;
       pct = Math.floor((current / total) * 100);
-      
+
       const isReady = skillState.charges > 0;
       cdText.textContent = isReady ? '' : `${pct}%`;
       if (nameEl) nameEl.style.display = isReady ? 'block' : 'none';
       if (iconEl) iconEl.style.display = isReady ? 'block' : 'none';
-      
+
       overlay.style.clipPath = `inset(${100 - pct}% 0 0 0)`;
     } else {
       const secs = Math.ceil(skillState.cooldownRemaining / 1000);
@@ -3093,10 +3092,10 @@ function updateCooldownUI() {
       cdText.textContent = isReady ? '' : `${secs}s`;
       if (nameEl) nameEl.style.display = isReady ? 'block' : 'none';
       if (iconEl) iconEl.style.display = isReady ? 'block' : 'none';
-      
+
       overlay.style.clipPath = `inset(${100 - (cdProgress * 100)}% 0 0 0)`;
     }
-    
+
     if (skillState.charges <= 0) {
       skillBtn.classList.add('disabled');
     } else {
@@ -3107,7 +3106,7 @@ function updateCooldownUI() {
     const def = SKILL_DEFS[skillState.skillId];
     const nameEl = skillBtn.querySelector('.skill-name');
     const iconEl = skillBtn.querySelector('.skill-icon');
-    
+
     if (nameEl) nameEl.style.display = 'block';
     if (iconEl) iconEl.style.display = 'block';
 
@@ -3124,7 +3123,7 @@ function updateCooldownUI() {
       if (overlay) overlay.remove();
       if (cdText) cdText.remove();
     }
-    
+
     // Also check if mass is insufficient
     const { canUse } = canUseSkill(skillState, player || { mass: 0 });
     if (!canUse && !skillState.isActive) {
@@ -3141,7 +3140,7 @@ function updateCooldownUI() {
 async function showRewardScreen(isVictory) {
   const xpReward = calculateXPReward(isVictory, elapsedTime, killCount);
   const goldReward = calculateGoldReward(isVictory, killCount);
-  
+
   // Capture initial state before granting
   const initialLevel = progress.level;
   const initialXP = progress.xp;
@@ -3167,7 +3166,7 @@ async function showRewardScreen(isVictory) {
     title.style.webkitBackgroundClip = 'text';
     title.style.webkitTextFillColor = 'transparent';
     title.style.filter = 'drop-shadow(0 0 30px rgba(0, 255, 187, 0.4))';
-    
+
     const mins = Math.floor(elapsedTime / 60000).toString().padStart(2, '0');
     const secs = Math.floor((elapsedTime % 60000) / 1000).toString().padStart(2, '0');
     subtitle.textContent = `達成時間 ${mins}:${secs}`;
@@ -3178,7 +3177,7 @@ async function showRewardScreen(isVictory) {
     title.style.webkitBackgroundClip = 'text';
     title.style.webkitTextFillColor = 'transparent';
     title.style.filter = 'drop-shadow(0 0 30px rgba(255, 68, 68, 0.4))';
-    
+
     subtitle.textContent = '已被淘汰';
     halo.style.display = 'none';
   }
@@ -3243,7 +3242,7 @@ async function showRewardScreen(isVictory) {
       barFill.style.transition = 'width 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)';
       barFill.style.width = `${getLevelProgress(progress) * 100}%`;
       levelLabel.textContent = `Lv.${progress.level}`;
-      
+
       // Update Numerical XP during reward
       const rXpText = document.getElementById('reward-xp-text');
       if (rXpText) {
@@ -3257,7 +3256,7 @@ async function showRewardScreen(isVictory) {
     } else {
       barFill.style.transition = 'width 1.2s cubic-bezier(0.34, 1.56, 0.64, 1)';
       barFill.style.width = `${getLevelProgress(progress) * 100}%`;
-      
+
       const rXpText = document.getElementById('reward-xp-text');
       if (rXpText) {
         const sXP = getXPForCurrentLevel(progress.level);
@@ -3307,7 +3306,7 @@ function triggerConfetti() {
   if (!container) return;
   container.innerHTML = '';
   const colors = ['#00FFBB', '#FFFFFF', '#00FFFF', '#FFD700', '#FF00FF'];
-  
+
   for (let i = 0; i < 80; i++) {
     const p = document.createElement('div');
     p.style.position = 'absolute';
@@ -3318,9 +3317,9 @@ function triggerConfetti() {
     p.style.top = `-20px`;
     p.style.borderRadius = '2px';
     p.style.opacity = Math.random();
-    
+
     container.appendChild(p);
-    
+
     const duration = Math.random() * 2 + 1.5;
     const delay = Math.random() * 1.5;
     p.animate([
@@ -3350,7 +3349,7 @@ function pauseForTutorial() {
 /** 恢復遊戲並補償暫停期間的計時偏差 */
 function resumeFromTutorial() {
   if (!isPaused) return; // 如果本來就沒暫停則忽略
-  
+
   if (tutorialPauseStart) {
     startTime += Date.now() - tutorialPauseStart;
     tutorialPauseStart = 0;
@@ -3398,7 +3397,7 @@ function createTrail(x, y, radius, color, alpha, duration) {
   trail.fill({ color, alpha });
   trail.position.set(x, y);
   nodeLayer.addChild(trail); // Put in nodeLayer (below entities)
-  
+
   let elapsed = 0;
   const anim = (d) => {
     elapsed += d.elapsedMS;
@@ -3421,7 +3420,7 @@ function triggerShockwave(x, y, color) {
     r += 18 * d.deltaTime;
     ring.clear();
     ring.circle(x, y, r);
-    ring.stroke({ width: 4, color, alpha: 1 - r/180 });
+    ring.stroke({ width: 4, color, alpha: 1 - r / 180 });
     if (r > 180) {
       nodeLayer.removeChild(ring);
       app.ticker.remove(anim);
