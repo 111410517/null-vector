@@ -2069,7 +2069,7 @@ body.skill-channeling #app {
 }
 
 /* --- Landscape Mobile Optimization (Radical Overhaul) --- */
-@media (orientation: landscape) and (max-height: 600px) and (max-width: 1024px) {
+@media (orientation: landscape) and (max-width: 1200px) {
   #orientation-warning { display: none !important; }
   
   #start-menu {
