@@ -988,14 +988,14 @@ function update(delta) {
       const vel = ent.body.velocity;
       const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
 
-      // 1. Calculate the theoretical base terminal speed at CURRENT mass (un-boosted)
-      // v_terminal = Force / (Mass * frictionAir)
-      const baseForceAtMass = CONFIG.baseForce * Math.pow(ent.mass / 30, 0.8);
-      const vBase = baseForceAtMass / (ent.body.mass * CONFIG.friction);
-      
-      // 2. Ratio of current actual velocity to theoretical base velocity
-      const realMult = speed / vBase;
-      const displayPct = Math.round((realMult - 1.0) * 100);
+      // Calculate Total Speed Multiplier for UI (Multiplicative for power feel)
+      let boostMult = 1.0;
+      if (skillState) {
+        if (skillState.isDefaultBoost && ent.isBoosting) boostMult = 2.0;
+        else if (skillState.skillId === 'overdrive' && skillState.isActive) boostMult = skillState.overdriveSpeedMult;
+      }
+      const totalMult = boostMult * (ent.speedMult || 1.0);
+      const displayPct = Math.round((totalMult - 1.0) * 100);
       const sign = displayPct >= 0 ? '+' : '';
 
       if (ent.speedIndicator && ent.speedGroup) {
