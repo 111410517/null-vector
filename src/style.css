@@ -2111,7 +2111,7 @@ body.skill-channeling #app {
 
   #player-name-input { 
     width: 260px !important; 
-    margin: 0 auto 15px auto !important; 
+    margin: 0 auto 25px auto !important; /* 增加間距，原為 15px */
     padding: 12px !important; 
     font-size: 1rem !important; 
     background: rgba(255, 255, 255, 0.08) !important;
@@ -2131,11 +2131,23 @@ body.skill-channeling #app {
   /* 隱藏中央重複的經驗/金幣顯示 */
   .progress-bar-row { display: none !important; }
 
-  /* 右上角狀態欄 (Mobile Stats Corner) */
-  .mobile-stats-corner {
+  /* 右上角狀態與安裝按鈕群組 */
+  .mobile-top-right-group {
     position: absolute;
     top: calc(env(safe-area-inset-top, 0px) + 30px);
     right: calc(env(safe-area-inset-right, 0px) + 40px);
+    display: flex !important;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 20;
+    width: 180px; /* 固定寬度以對齊 */
+  }
+
+  /* 右上角狀態欄 (Mobile Stats Corner) */
+  .mobile-stats-corner {
+    position: relative; /* 改為相對定位 */
+    top: auto !important;
+    right: auto !important;
     display: flex !important;
     flex-direction: column;
     gap: 8px;
@@ -2144,9 +2156,25 @@ body.skill-channeling #app {
     background: rgba(255, 255, 255, 0.04);
     border: 1px solid rgba(255, 255, 255, 0.1);
     z-index: 10;
-    min-width: 140px;
+    width: 100%;
+    box-sizing: border-box;
     backdrop-filter: blur(10px);
   }
+
+  .m-install-btn {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 12px !important;
+    font-size: 0.75rem !important;
+    border-radius: 50px !important;
+    background: rgba(255, 255, 255, 0.1) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    color: #FFF !important;
+    letter-spacing: 2px !important;
+    display: none; /* 預理由 JS 控制 */
+  }
+
+  .desktop-only-install { display: none !important; }
   .m-stat { display: flex; justify-content: space-between; align-items: baseline; }
   .m-label { font-size: 0.6rem; font-weight: 900; opacity: 0.5; letter-spacing: 1.5px; }
   .m-value { font-size: 1.2rem; font-weight: 900; color: #00FFBB; }

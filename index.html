@@ -76,19 +76,23 @@
 
     <!-- Start Menu -->
     <div id="start-menu">
-        <!-- [NEW] Mobile Stats Corner (Top Right) -->
-        <div class="mobile-stats-corner glass">
-          <div class="m-stat">
-            <span class="m-label">LV</span>
-            <span id="m-level" class="m-value">1</span>
-          </div>
-          <div class="m-stat">
-            <span class="m-label">GOLD</span>
-            <span id="m-gold" class="m-value">0</span>
-          </div>
-          <div class="m-xp-mini">
-            <div id="m-xp-fill" class="m-xp-fill"></div>
-          </div>
+        <!-- [NEW] Mobile Stats & Actions (Top Right) -->
+        <div class="mobile-top-right-group">
+            <div class="mobile-stats-corner glass">
+              <div class="m-stat">
+                <span class="m-label">LV</span>
+                <span id="m-level" class="m-value">1</span>
+              </div>
+              <div class="m-stat">
+                <span class="m-label">GOLD</span>
+                <span id="m-gold" class="m-value">0</span>
+              </div>
+              <div class="m-xp-mini">
+                <div id="m-xp-fill" class="m-xp-fill"></div>
+              </div>
+            </div>
+            <!-- 手機版將安裝按鈕移至此處 -->
+            <button id="install-pwa-btn-mobile" class="secondary-btn m-install-btn" style="display: none;">安裝應用程式</button>
         </div>
 
         <!-- [NEW] Mobile Navigation Bar (Left Side) -->
@@ -231,7 +235,8 @@
           <input type="text" id="player-name-input" maxlength="12" placeholder="輸入玩家名稱" value="PLAYER">
 
           <button id="start-btn" class="primary-btn">開始遊戲</button>
-          <button id="install-pwa-btn" class="secondary-btn" style="display: none;">安裝應用程式</button>
+          <!-- 桌面版保持原位 -->
+          <button id="install-pwa-btn" class="secondary-btn desktop-only-install" style="display: none;">安裝應用程式</button>
         </div>
 
         <!-- 右側指南面板 - 現在也是 Overlay -->

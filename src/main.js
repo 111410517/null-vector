@@ -2071,41 +2071,39 @@ function togglePause() {
 
 // PWA INSTALL LOGIC
 let deferredPrompt;
-const installBtn = document.getElementById('install-pwa-btn');
+const installBtns = document.querySelectorAll('#install-pwa-btn, #install-pwa-btn-mobile');
 
 // Check if already in standalone mode
 const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
-if (isStandalone && installBtn) {
-  installBtn.style.display = 'none';
+if (isStandalone) {
+  installBtns.forEach(btn => btn.style.display = 'none');
 }
 
 window.addEventListener('beforeinstallprompt', (e) => {
-  // If we are already in standalone, don't show the button
   if (window.matchMedia('(display-mode: standalone)').matches) return;
-  
   e.preventDefault();
   deferredPrompt = e;
-  if (installBtn) {
-    installBtn.style.display = 'block';
-    installBtn.innerText = '安裝應用程式';
-  }
+  installBtns.forEach(btn => {
+    btn.style.display = 'block';
+    btn.innerText = '安裝應用程式';
+  });
 });
 
-if (installBtn) {
-  installBtn.addEventListener('click', async () => {
+installBtns.forEach(btn => {
+  btn.addEventListener('click', async () => {
     if (!deferredPrompt) return;
     deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
     if (outcome === 'accepted') {
-      installBtn.style.display = 'none';
+      installBtns.forEach(b => b.style.display = 'none');
     }
     deferredPrompt = null;
   });
-}
+});
 
 window.addEventListener('appinstalled', () => {
   console.log('PWA was installed');
-  if (installBtn) installBtn.style.display = 'none';
+  installBtns.forEach(btn => btn.style.display = 'none');
   deferredPrompt = null;
 });
 
