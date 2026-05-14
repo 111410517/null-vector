@@ -25,6 +25,7 @@ let nodeLayer, entityLayer, virusLayer, powerupLayer, vfxLayer, gameContainer;
 let player, entities = [], nodes = [], powerups = [];
 let miniVFX = [];
 let mousePos = { x: 0, y: 0 };
+let isMouseMoved = false; // [NEW] 紀錄進入遊戲後是否移動過滑鼠
 let joystick = { active: false, vector: { x: 0, y: 0 }, touchId: null };
 let isGameOver = false;
 let isGameRunning = false;
@@ -280,6 +281,7 @@ function spawnNPC(index, customX, customY, customMass, isDemoScripted, avoidViru
 function startGame() {
   isGameOver = false;
   isPaused = false;
+  isMouseMoved = false; // 重置滑鼠移動狀態
   app.ticker.speed = 1; // 確保速度恢復
   tutorialPauseStart = 0;
   clearWorld();
@@ -1000,6 +1002,11 @@ function handleInputs() {
   // MOUSE CONTROL (PC Mode)
   // 如果是觸控設備或正在使用搖桿，則停用滑鼠位置偵測
   if (!joystick.active && !isTouchDevice) {
+    // [NEW] 只有移動過滑鼠後才開始根據滑鼠位置移動
+    if (!isMouseMoved) {
+      joystick.vector = { x: 0, y: 0 };
+      return;
+    }
     const screenPos = new PIXI.Point(mousePos.x, mousePos.y);
     const worldMouse = app.stage.toLocal(screenPos);
     const diff = Matter.Vector.sub(worldMouse, player.body.position);
@@ -1387,6 +1394,7 @@ function setupInputs() {
     if (e.pointerType === 'mouse') {
       mousePos.x = e.clientX;
       mousePos.y = e.clientY;
+      isMouseMoved = true; // 偵測到滑鼠移動
     }
   });
 
