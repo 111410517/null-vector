@@ -173,6 +173,27 @@ async function init() {
   for (let i = 0; i < CONFIG.virusCount; i++) spawnVirus();
 
   setupInputs();
+  
+  // [NEW] Mobile Navigation Event Listeners
+  document.querySelectorAll('.m-nav-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = btn.dataset.target;
+      if (target === 'guide') {
+        document.getElementById('overlay-guide').classList.add('active');
+      } else {
+        const tabBtn = document.querySelector(`.tab-btn[data-tab="${target}"]`);
+        if (tabBtn) tabBtn.click();
+        document.getElementById('overlay-features').classList.add('active');
+      }
+    });
+  });
+
+  document.querySelectorAll('.close-overlay-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.feature-overlay').forEach(ov => ov.classList.remove('active'));
+    });
+  });
+
   document.getElementById('start-btn').onclick = () => {
     showLoadingScreen(startGame);
   };
@@ -2141,6 +2162,16 @@ function refreshProgressDisplay() {
   }
   
   document.getElementById('gold-amount').textContent = progress.gold;
+  
+  // [NEW] Sync Mobile Stats Corner
+  const mLevel = document.getElementById('m-level');
+  const mGold = document.getElementById('m-gold');
+  const mXpFill = document.getElementById('m-xp-fill');
+  
+  if (mLevel) mLevel.textContent = progress.level >= MAX_LEVEL ? 'MAX' : progress.level;
+  if (mGold) mGold.textContent = progress.gold;
+  if (mXpFill) mXpFill.style.width = `${Math.round(pct * 100)}%`;
+
   // Sync skin page gold
   const skinGold = document.getElementById('skin-gold-amount');
   if (skinGold) skinGold.textContent = progress.gold;

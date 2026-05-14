@@ -76,11 +76,43 @@
 
     <!-- Start Menu -->
     <div id="start-menu">
-      <div class="menu-container">
-        <!-- 左側輔助面板 (紀錄/技能/皮膚) -->
-        <div class="secondary-panel glass">
+        <!-- [NEW] Mobile Stats Corner (Top Right) -->
+        <div class="mobile-stats-corner glass">
+          <div class="m-stat">
+            <span class="m-label">LV</span>
+            <span id="m-level" class="m-value">1</span>
+          </div>
+          <div class="m-stat">
+            <span class="m-label">GOLD</span>
+            <span id="m-gold" class="m-value">0</span>
+          </div>
+          <div class="m-xp-mini">
+            <div id="m-xp-fill" class="m-xp-fill"></div>
+          </div>
+        </div>
+
+        <!-- [NEW] Mobile Navigation Bar (Left Side) -->
+        <div class="mobile-nav-bar">
+          <button class="m-nav-btn" data-target="history" title="紀錄">
+            <svg viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round"/></svg>
+          </button>
+          <button class="m-nav-btn" data-target="skills" title="技能">
+            <svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round"/></svg>
+          </button>
+          <button class="m-nav-btn" data-target="skins" title="皮膚">
+            <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 00-10 10 10 10 0 0010 10 10 10 0 0010-10A10 10 0 0012 2zm0 6a4 4 0 100 8 4 4 0 000-8z" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round"/></svg>
+          </button>
+          <button class="m-nav-btn" data-target="guide" title="指南">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" fill="none" stroke-width="2"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3m0 4h.01" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+
+        <!-- 左側輔助面板 (紀錄/技能/皮膚) - 現在作為手機版 Overlay 的一部分 -->
+        <div class="secondary-panel glass feature-overlay" id="overlay-features">
+          <button class="close-overlay-btn">&times;</button>
           <!-- 左側 Tab 導航 (移至上方) -->
           <div class="tab-bar">
+            <!-- 保持原有 Tab 按鈕供桌面版使用，手機版透過 ID 切換 -->
             <button class="tab-btn active" data-tab="history">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
                 stroke-linejoin="round">
@@ -181,7 +213,8 @@
           <h1 class="menu-title">NULL VECTOR</h1>
           <p class="menu-subtitle">SURVIVE. GROW. WIN.</p>
 
-          <div class="progress-bar-row">
+          <!-- 桌面版進度條 (手機版將隱藏) -->
+          <div class="progress-bar-row desktop-only">
             <div class="level-display">
               <span id="level-label" class="level-badge">Lv.1</span>
               <div class="xp-bar-container">
@@ -201,8 +234,9 @@
           <button id="install-pwa-btn" class="secondary-btn" style="display: none;">安裝應用程式</button>
         </div>
 
-        <!-- 右側指南面板 -->
-        <div class="guide-panel glass">
+        <!-- 右側指南面板 - 現在也是 Overlay -->
+        <div class="guide-panel glass feature-overlay" id="overlay-guide">
+          <button class="close-overlay-btn">&times;</button>
           <div class="guide-section">
             <h3>核心操作</h3>
             <div class="guide-item">
