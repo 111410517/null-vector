@@ -38,7 +38,7 @@ export const SKILL_DEFS = {
     cooldown: [1200, 1100, 1000],   // 再次減半
     minMass: 0,
     // 加速漸增時間（ms）、持續時間（ms）
-    rampUpDuration: 1000,           // 回調至 1s
+    rampUpDuration: 2000,           // 增加至 2s，使加速過程更平滑
     sustainDuration: [3000, 3000, 3000], // 維持 3s
     maxSpeedMult: 4.5,
   },
