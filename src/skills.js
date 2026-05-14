@@ -39,7 +39,7 @@ export const SKILL_DEFS = {
     minMass: 0,
     // 加速漸增時間（ms）、持續時間（ms）
     rampUpDuration: 2000,           // 增加至 2s，使加速過程更平滑
-    sustainDuration: [3000, 3000, 3000], // 維持 3s
+    sustainDuration: [1500, 1500, 1500], // 縮短至 1.5s，平衡高極速表現
     maxSpeedMult: 4.5,
   },
 
