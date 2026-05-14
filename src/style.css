@@ -598,6 +598,7 @@ canvas {
   background: rgba(255, 255, 255, 0.2);
   border-color: #FFFFFF;
   box-shadow: 0 0 30px rgba(255, 255, 255, 0.4);
+  color: #FFFFFF;
 }
 
 .skill-btn.disabled {
@@ -606,7 +607,18 @@ canvas {
   transform: scale(1);
 }
 
-.skill-name { font-size: 1rem; font-weight: 900; letter-spacing: 2px; z-index: 2; }
+.skill-name { 
+  font-size: 1rem; 
+  font-weight: 900; 
+  letter-spacing: 2px; 
+  z-index: 10; 
+  mix-blend-mode: difference;
+}
+.skill-icon {
+  font-size: 1.5rem;
+  z-index: 10;
+  mix-blend-mode: difference;
+}
 
 .charge-badge {
   position: absolute;
@@ -2087,7 +2099,7 @@ body.skill-channeling #app {
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(255, 255, 255, 0.85);
+  background: #FFFFFF;
   border-radius: 50%;
   display: flex;
   justify-content: center;
