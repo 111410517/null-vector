@@ -252,6 +252,6 @@ export function getCooldownProgress(skillState) {
   if (skillState.cooldownRemaining <= 0) return 0;
   const def = SKILL_DEFS[skillState.skillId];
   if (!def) return 0;
-  const total = getSkillParam(def, 'cooldown', skillState.level);
+  const total = def.energyRequired ? getSkillParam(def, 'energyRequired', skillState.level) : getSkillParam(def, 'cooldown', skillState.level);
   return skillState.cooldownRemaining / total;
 }

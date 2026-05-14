@@ -2979,8 +2979,16 @@ function updateCooldownUI() {
       overlay.innerHTML = '<span class="cooldown-text"></span>';
       skillBtn.appendChild(overlay);
     }
-    const secs = Math.ceil(skillState.cooldownRemaining / 1000);
-    overlay.querySelector('.cooldown-text').textContent = skillState.charges > 0 ? '' : `${secs}s`;
+    const def = SKILL_DEFS[skillState.skillId];
+    if (def && def.energyRequired) {
+      const total = getSkillParam(def, 'energyRequired', skillState.level);
+      const current = total - skillState.cooldownRemaining;
+      const pctDisplay = Math.floor((current / total) * 100);
+      overlay.querySelector('.cooldown-text').textContent = skillState.charges > 0 ? '' : `${pctDisplay}%`;
+    } else {
+      const secs = Math.ceil(skillState.cooldownRemaining / 1000);
+      overlay.querySelector('.cooldown-text').textContent = skillState.charges > 0 ? '' : `${secs}s`;
+    }
     
     // Clip from bottom upwards
     const pct = cdProgress * 100;
