@@ -1061,10 +1061,28 @@ function update(delta) {
     // 讓視野隨體型成長而縮放得更快（0.0006 -> 0.0012）
     let targetZoom = Math.max(minZoom, baseZoom / (1 + (player.mass - CONFIG.initialMass) * 0.0012));
     if (player.isBoosting) targetZoom *= 0.85;
+
+    // --- [NEW] Camera Focus & Aim Following ---
+    let camX = player.body.position.x;
+    let camY = player.body.position.y;
+
+    if (skillState && skillState.skillId === 'flashStep' && skillState.isChanneling) {
+      targetZoom *= 1.25; // Zoom in slightly while aiming
+      
+      // Shift camera pivot towards the aim target
+      if (skillDrag.vector.x !== 0 || skillDrag.vector.y !== 0) {
+        const def = SKILL_DEFS.flashStep;
+        const maxRange = (player.mass / 10 + 200) * def.maxRangeMultiplier;
+        const lookAhead = maxRange * 0.35; // Follow up to 35% of max range
+        camX += skillDrag.vector.x * lookAhead;
+        camY += skillDrag.vector.y * lookAhead;
+      }
+    }
+
     app.stage.scale.x += (targetZoom - app.stage.scale.x) * zoomLerp;
     app.stage.scale.y += (targetZoom - app.stage.scale.y) * zoomLerp;
-    app.stage.pivot.x += (player.body.position.x - app.stage.pivot.x) * followLerp;
-    app.stage.pivot.y += (player.body.position.y - app.stage.pivot.y) * followLerp;
+    app.stage.pivot.x += (camX - app.stage.pivot.x) * followLerp;
+    app.stage.pivot.y += (camY - app.stage.pivot.y) * followLerp;
   } else {
     const menuZoom = minZoom * 1.2;
     app.stage.scale.x += (menuZoom - app.stage.scale.x) * zoomLerp;
