@@ -784,17 +784,21 @@ function createGrid() {
 }
 
 function update(delta) {
+  // Apply timeScale (Flash Step bullet time)
+  // Ensure time stops during Pause or Tutorial
+  const isPausedOrTutorial = isPaused || isTutorialActive();
+  const currentScale = isPausedOrTutorial ? 0 : timeScale;
+  const scaledDeltaMS = delta.elapsedMS * currentScale;
+
   // Always update physics if not paused/gameover (includes menu state)
-  const shouldUpdatePhysics = !isGameOver && !isPaused;
+  const shouldUpdatePhysics = !isGameOver && !isPaused && !isTutorialActive();
 
   if (shouldUpdatePhysics) {
-    // Apply timeScale (Flash Step bullet time)
-    const scaledDeltaMS = Math.min(16.6, delta.elapsedMS) * timeScale;
     Matter.Engine.update(engine, scaledDeltaMS);
 
     // Update skill cooldown (only if game is actually running)
     if (isGameRunning && skillState) {
-      updateSkillCooldown(skillState, delta.elapsedMS);
+      updateSkillCooldown(skillState, scaledDeltaMS);
       updateSkillEffects(delta);
       updateCooldownUI();
     }
@@ -1102,8 +1106,8 @@ function update(delta) {
   }
 
   // Timer & UI
-  if (isGameRunning && !isGameOver && !isPaused) {
-    elapsedTime = Date.now() - startTime;
+  if (isGameRunning && !isGameOver && !isPaused && !isTutorialActive()) {
+    elapsedTime += scaledDeltaMS;
     const mins = Math.floor(elapsedTime / 60000).toString().padStart(2, '0');
     const secs = Math.floor((elapsedTime % 60000) / 1000).toString().padStart(2, '0');
     const timerEl = document.getElementById('timer-text');
