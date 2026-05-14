@@ -56,6 +56,7 @@ const COMBO_WINDOW = 5000; // 5 秒連擊窗口
 
 /** 閃現技能的全域時間縮放 (1.0 = 正常, 0.3 = 減速) */
 let timeScale = 1.0;
+let fpsUpdateTimer = 0; // FPS 更新計時器
 
 const NPC_NAMES = [
   "Shadow_Hunter", "Zephyr", "Apex_Void", "CyberPulse", "Neon_Ghost",
@@ -298,6 +299,9 @@ function startGame() {
   if (comboOverlay) comboOverlay.classList.remove('active');
   const comboText = document.getElementById('combo-text-container');
   if (comboText) comboText.classList.remove('active');
+
+  const fpsDisplay = document.getElementById('fps-display');
+  if (fpsDisplay) fpsDisplay.style.display = 'block';
 
   app.ticker.speed = 1; // 確保速度恢復
   tutorialPauseStart = 0;
@@ -1034,6 +1038,16 @@ function update(delta) {
         const opacity = Math.min(0.9, 0.4 + comboCount * 0.05);
         overlay.style.setProperty('--combo-glow', `${glow}px`);
         overlay.style.setProperty('--combo-opacity', opacity);
+      }
+
+      // FPS 更新 (約一秒更新一次)
+      fpsUpdateTimer += delta.deltaTime;
+      if (fpsUpdateTimer >= 60) {
+        const fpsDisplay = document.getElementById('fps-display');
+        if (fpsDisplay) {
+          fpsDisplay.textContent = `fps ${Math.round(app.ticker.FPS)}`;
+        }
+        fpsUpdateTimer = 0;
       }
 
       // 倒數警告閃爍 (最後 1.5 秒)
@@ -2189,6 +2203,9 @@ window.returnToMenu = () => {
   isPaused = false;
   app.ticker.speed = 1; // 確保速度恢復
   
+  const fpsDisplay = document.getElementById('fps-display');
+  if (fpsDisplay) fpsDisplay.style.display = 'none';
+  
   // 清理世界並重新生成原有的演示背景物件 (4個特定 NPC)
   clearWorld();
   for (let i = 0; i < 4; i++) {
@@ -2251,14 +2268,20 @@ function togglePause() {
 let deferredPrompt;
 const installBtns = document.querySelectorAll('#install-pwa-btn, #install-pwa-btn-mobile');
 
-// Check if already in standalone mode
-const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
-if (isStandalone) {
-  installBtns.forEach(btn => btn.style.display = 'none');
+function updateInstallBtnVisibility() {
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+  if (isStandalone) {
+    installBtns.forEach(btn => btn.style.setProperty('display', 'none', 'important'));
+  }
 }
 
+// Initial check
+updateInstallBtnVisibility();
+
 window.addEventListener('beforeinstallprompt', (e) => {
-  if (window.matchMedia('(display-mode: standalone)').matches) return;
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+  if (isStandalone) return;
+
   e.preventDefault();
   deferredPrompt = e;
   installBtns.forEach(btn => {
@@ -2273,7 +2296,7 @@ installBtns.forEach(btn => {
     deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
     if (outcome === 'accepted') {
-      installBtns.forEach(b => b.style.display = 'none');
+      installBtns.forEach(b => b.style.setProperty('display', 'none', 'important'));
     }
     deferredPrompt = null;
   });
@@ -2281,7 +2304,7 @@ installBtns.forEach(btn => {
 
 window.addEventListener('appinstalled', () => {
   console.log('PWA was installed');
-  installBtns.forEach(btn => btn.style.display = 'none');
+  installBtns.forEach(btn => btn.style.setProperty('display', 'none', 'important'));
   deferredPrompt = null;
 });
 
