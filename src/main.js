@@ -2623,7 +2623,6 @@ function endOverdrive() {
   skillState.overdriveSpeedMult = 1.0;
   skillState.isActive = false;
   player.isBoosting = false;
-  startCooldown(skillState, getComboBuff());
 }
 
 // --- Triple Dash ---
