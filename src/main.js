@@ -1075,9 +1075,9 @@ function update(delta) {
       
       // Shift camera pivot towards the aim target
       if (skillDrag.vector.x !== 0 || skillDrag.vector.y !== 0) {
-        const radius = calculateRadius(player.mass);
-        const maxRange = radius * SKILL_DEFS.flashStep.maxRangeMultiplier;
-        const lookAhead = maxRange * 0.7; // Follow up to 70% of max range to focus on destination
+        const def = SKILL_DEFS.flashStep;
+        const maxRange = calculateRadius(player.mass) * def.maxRangeMultiplier;
+        const lookAhead = maxRange * 0.5; // Follow up to 50% of max range
         camX += skillDrag.vector.x * lookAhead;
         camY += skillDrag.vector.y * lookAhead;
       }
@@ -1199,8 +1199,7 @@ function handleInputs() {
     const dist = Matter.Vector.magnitude(diff);
 
     const def = SKILL_DEFS.flashStep;
-    const radius = calculateRadius(player.mass);
-    const maxRange = radius * def.maxRangeMultiplier;
+    const maxRange = calculateRadius(player.mass) * def.maxRangeMultiplier;
     const normalizedDist = Math.min(dist, maxRange) / maxRange;
 
     if (dist > 0) {
