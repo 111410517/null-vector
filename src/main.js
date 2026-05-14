@@ -2739,7 +2739,8 @@ function executeSprint() {
     angle = Math.atan2(diff.y, diff.x);
   }
 
-  player.sprintVisualTimer = 200; // 200ms 的變形效果
+  player.sprintVisualTimer = 400; // Trigger body stretch
+  player.protectionTime = 20; // I-frames during dash
   const force = def.dashForce;
   Matter.Body.setVelocity(player.body, {
     x: Math.cos(angle) * force,
@@ -2813,6 +2814,7 @@ function performSingleDash(cost) {
 
   const force = SKILL_DEFS.tripleDash.dashForce;
   player.dashVisualTimer = 300; // Trigger body stretch for 300ms
+  player.protectionTime = 15; // I-frames during dash
   Matter.Body.setVelocity(player.body, {
     x: Math.cos(angle) * force,
     y: Math.sin(angle) * force
@@ -2912,6 +2914,8 @@ async function executeFlashStep() {
   const startX = player.body.position.x;
   const startY = player.body.position.y;
   const startPos = { x: startX, y: startY };
+
+  player.protectionTime = 30; // I-frames for teleport + landing buffer
 
   // NEW: Fast Dash instead of teleport
   const dashSteps = 2; // Reduced for faster movement
