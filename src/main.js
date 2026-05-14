@@ -1203,11 +1203,17 @@ function handleInputs() {
 
     const def = SKILL_DEFS.flashStep;
     const baseMaxRange = calculateRadius(player.mass) * def.maxRangeMultiplier;
-    const softLimit = baseMaxRange * 0.8;
-    // Damping logic: Beyond 80% range, the aim point moves much slower (0.3 factor)
-    const effectiveDist = dist <= softLimit ? dist : softLimit + (dist - softLimit) * 0.3;
-    const maxVisualRange = baseMaxRange * 1.15; // Extend total visual range to 115%
-    const finalDist = Math.min(effectiveDist, maxVisualRange);
+    const softLimit = baseMaxRange * 0.7; // Earlier damping start
+    
+    let finalDist;
+    if (dist <= softLimit) {
+      finalDist = dist;
+    } else {
+      // Use a square-root curve for "infinite resistance" feel
+      // This means the point always moves forward, but slower and slower
+      const overflow = dist - softLimit;
+      finalDist = softLimit + Math.sqrt(overflow) * (baseMaxRange * 0.05);
+    }
     const normalizedDist = finalDist / baseMaxRange;
 
     if (dist > 0) {
@@ -1802,12 +1808,17 @@ function setupInputs() {
     const dy = touch.clientY - skillDrag.startY;
     const dist = Math.sqrt(dx * dx + dy * dy);
     
-    // Elastic Damping for Mobile
+    // Infinite Elastic Damping for Mobile
     const baseDrag = 80; 
-    const softLimit = baseDrag * 0.8;
-    const effectiveDrag = dist <= softLimit ? dist : softLimit + (dist - softLimit) * 0.3;
-    const maxVisualDrag = baseDrag * 1.15;
-    const finalDrag = Math.min(effectiveDrag, maxVisualDrag);
+    const softLimit = baseDrag * 0.7;
+    
+    let finalDrag;
+    if (dist <= softLimit) {
+      finalDrag = dist;
+    } else {
+      const overflow = dist - softLimit;
+      finalDrag = softLimit + Math.sqrt(overflow) * (baseDrag * 0.05);
+    }
     const normalizedDist = finalDrag / baseDrag;
     
     const angle = Math.atan2(dy, dx);
@@ -2840,7 +2851,21 @@ function startFlashStepChannel() {
 async function executeFlashStep() {
   if (!skillState.isChanneling) return;
   skillState.isChanneling = false;
-  timeScale = 1.0;
+  
+  // Smoothly recover timeScale (linear decay over 400ms)
+  const startT = timeScale;
+  const targetT = 1.0;
+  const duration = 400;
+  const startTimeRec = Date.now();
+  
+  const recovery = () => {
+    const elapsed = Date.now() - startTimeRec;
+    const p = Math.min(1, elapsed / duration);
+    timeScale = startT + (targetT - startT) * p;
+    if (p >= 1) app.ticker.remove(recovery);
+  };
+  app.ticker.add(recovery);
+
   document.body.classList.remove('skill-channeling');
   document.body.classList.remove('hide-cursor');
 
