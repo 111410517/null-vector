@@ -912,7 +912,7 @@ function update(delta) {
       const targetBoost = ent.isBoosting ? 1.0 : 0.0;
       ent.boostFactor += (targetBoost - ent.boostFactor) * 0.05; // Softer lerp (0.08 -> 0.05)
 
-      const isSkillBoost = ent.isPlayer && skillState && !skillState.isDefaultBoost && skillState.isActive;
+      const isSkillBoost = ent.isPlayer && skillState && !skillState.isDefaultBoost && (skillState.isActive || ent.sprintVisualTimer > 0 || ent.dashVisualTimer > 0);
       if (ent.isBoosting && ent.mass > 20 && !isSkillBoost) {
         ent.mass -= 0.01 * (scaledDeltaMS / 16.666);
       }
