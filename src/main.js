@@ -799,7 +799,7 @@ function update(delta) {
     // Update skill cooldown (only if game is actually running)
     if (isGameRunning && skillState) {
       updateSkillCooldown(skillState, scaledDeltaMS);
-      updateSkillEffects(delta);
+      updateSkillEffects(delta, scaledDeltaMS);
       updateCooldownUI();
     }
 
@@ -2985,14 +2985,14 @@ function pointToSegmentDist(p, a, b) {
 /**
  * 每幀更新技能效果（Overdrive 漸增、Triple Dash 連擊、Flash Step 指示器）
  */
-function updateSkillEffects(delta) {
+function updateSkillEffects(delta, scaledDeltaMS) {
   if (!skillState || !player || player.isDestroyed) return;
   const dt = delta.deltaTime;
 
   // Overdrive ramp-up and sustain
   if (skillState.skillId === 'overdrive' && skillState.isActive) {
     const def = SKILL_DEFS.overdrive;
-    skillState.overdriveElapsed += delta.elapsedMS;
+    skillState.overdriveElapsed += scaledDeltaMS;
 
     if (skillState.overdrivePhase === 'rampUp') {
       const overdriveProgress = Math.min(1, skillState.overdriveElapsed / def.rampUpDuration);
@@ -3026,7 +3026,7 @@ function updateSkillEffects(delta) {
 
   // Triple Dash interval
   if (skillState.skillId === 'tripleDash' && skillState.isActive && skillState.tripleDashRemaining > 0) {
-    skillState.tripleDashTimer += delta.elapsedMS;
+    skillState.tripleDashTimer += scaledDeltaMS;
     if (skillState.tripleDashTimer >= SKILL_DEFS.tripleDash.dashInterval) {
       skillState.tripleDashTimer = 0;
       const costPerDash = getSkillParam(SKILL_DEFS.tripleDash, 'massCostPerDash', skillState.level);
