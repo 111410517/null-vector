@@ -2588,9 +2588,9 @@ body.skill-channeling #app {
 }
 
 .combo-buff-label {
-  font-size: 1.4rem;
-  color: #00FFBB;
-  text-shadow: 0 0 10px rgba(0, 255, 187, 0.6);
+  font-size: 1.1rem;
+  color: #FFFFFF;
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.4);
   margin-bottom: -5px;
   letter-spacing: 1px;
 }

@@ -1250,9 +1250,6 @@ function updateCombo() {
         <div class="combo-timer-bar"></div>
       </div>
     `;
-    
-    // 增加一點額外的震動感
-    screenShake = Math.max(screenShake, 15 + comboCount * 2);
   }
 }
 
