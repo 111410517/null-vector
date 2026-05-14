@@ -2675,9 +2675,13 @@ async function executeFlashStep() {
     const entRadius = calculateRadius(ent.mass);
     
     if (dist < radius + entRadius) {
-      player.mass += ent.mass * 0.5;
+      const gainedMass = ent.mass * 0.5;
+      player.mass += gainedMass;
       killCount++;
       killedSomething = true;
+      
+      updateCombo();
+      showMassFeed(gainedMass, 'green');
       
       // TRIGGER SHAKE IMMEDIATELY
       screenShake = Math.max(screenShake, 60); 
