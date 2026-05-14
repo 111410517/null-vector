@@ -994,7 +994,7 @@ function update(delta) {
         if (skillState.isDefaultBoost && ent.isBoosting) boostMult = 2.0;
         else if (skillState.skillId === 'overdrive' && skillState.isActive) boostMult = skillState.overdriveSpeedMult;
       }
-      const totalMult = boostMult * (ent.speedMult || 1.0);
+      const totalMult = boostMult + ((ent.speedMult || 1.0) - 1.0);
       const displayPct = Math.round((totalMult - 1.0) * 100);
       const sign = displayPct >= 0 ? '+' : '';
 
@@ -1192,7 +1192,7 @@ function handleInputs() {
     } else if (skillState && skillState.skillId === 'overdrive' && skillState.isActive) {
       boostMult = skillState.overdriveSpeedMult;
     }
-    const finalMult = boostMult * (player.speedMult || 1.0);
+    const finalMult = boostMult + ((player.speedMult || 1.0) - 1.0);
     const force = CONFIG.baseForce * Math.pow(player.mass / 30, 0.8) * finalMult;
 
     // Steering Improvement: 
