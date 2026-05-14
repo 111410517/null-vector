@@ -452,6 +452,19 @@ function createEntity(x, y, mass, name, isPlayer) {
     dirIndicator.fill({ color: 0xFFFFFF });
     container.addChild(dirIndicator);
     entity.dirIndicator = dirIndicator;
+
+    // [NEW] Speed Multiplier Indicator
+    const speedIndicator = new PIXI.Text({
+      text: '⚡ +0%',
+      style: {
+        fontFamily: 'Outfit', fontSize: 16, fill: 0x00FFBB,
+        fontWeight: '900',
+        stroke: { color: 0x000000, width: 4, join: 'round' }
+      }
+    });
+    speedIndicator.anchor.set(0.5, 0.5);
+    container.addChild(speedIndicator);
+    entity.speedIndicator = speedIndicator;
   }
 
   // Draw initial life rings
@@ -951,6 +964,24 @@ function update(delta) {
     if (ent.isPlayer && ent.dirIndicator) {
       const vel = ent.body.velocity;
       const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
+      
+      // Calculate Total Speed Multiplier for UI
+      let boostMult = 1.0;
+      if (skillState) {
+        if (skillState.isDefaultBoost && ent.isBoosting) boostMult = 2.0;
+        else if (skillState.skillId === 'overdrive' && skillState.isActive) boostMult = skillState.overdriveSpeedMult;
+      }
+      const massPenalty = Math.pow(ent.mass / 30, -0.2); // (mass/30)^-0.2
+      const totalMult = boostMult * (ent.speedMult || 1.0) * massPenalty;
+      const displayPct = Math.round((totalMult - 1.0) * 100);
+      const sign = displayPct >= 0 ? '+' : '';
+      
+      if (ent.speedIndicator) {
+        ent.speedIndicator.text = `⚡ ${sign}${displayPct}%`;
+        ent.speedIndicator.style.fill = displayPct >= 0 ? 0x00FFBB : 0xFF4444;
+        ent.speedIndicator.scale.set(inverseZoom);
+      }
+
       if (speed > 0.5) {
         ent.dirIndicator.visible = true;
         const targetAngle = Math.atan2(vel.y, vel.x);
@@ -960,14 +991,28 @@ function update(delta) {
         ent.smoothRotation += diff * 0.45;
         ent.dirIndicator.rotation = ent.smoothRotation;
         ent.dirIndicator.scale.set(inverseZoom);
+        
         const deformedR = getDeformedRadius(ent, ent.smoothRotation, radius);
         const ringSpacing = 0.15;
         const ringOffsetMult = (ent.lives > 1 ? (ent.lives - 1) * ringSpacing + 0.1 : 0.05);
-        const dist = deformedR + (radius * ringOffsetMult) + (15 * inverseZoom);
-        ent.dirIndicator.x = Math.cos(ent.smoothRotation) * dist;
-        ent.dirIndicator.y = Math.sin(ent.smoothRotation) * dist;
+        const baseDist = deformedR + (radius * ringOffsetMult) + (15 * inverseZoom);
+        
+        // Position Direction Indicator
+        ent.dirIndicator.x = Math.cos(ent.smoothRotation) * baseDist;
+        ent.dirIndicator.y = Math.sin(ent.smoothRotation) * baseDist;
+        
+        // Position Speed Indicator (To the left of movement, slightly further out)
+        if (ent.speedIndicator) {
+          ent.speedIndicator.visible = true;
+          const speedAngle = ent.smoothRotation - Math.PI / 2;
+          const speedDist = baseDist + (30 * inverseZoom);
+          ent.speedIndicator.x = Math.cos(speedAngle) * speedDist;
+          ent.speedIndicator.y = Math.sin(speedAngle) * speedDist;
+          ent.speedIndicator.rotation = ent.smoothRotation; // Keep same orientation as indicator for style
+        }
       } else {
         ent.dirIndicator.visible = false;
+        if (ent.speedIndicator) ent.speedIndicator.visible = false;
       }
     }
   });
