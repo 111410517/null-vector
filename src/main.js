@@ -1073,13 +1073,26 @@ function update(delta) {
     if (skillState && skillState.skillId === 'flashStep' && skillState.isChanneling) {
       targetZoom *= 1.25; // Zoom in slightly while aiming
       
-      // Shift camera pivot towards the aim target
+      // Shift camera pivot towards the aim target ONLY when pulling near limit
       if (skillDrag.vector.x !== 0 || skillDrag.vector.y !== 0) {
-        const def = SKILL_DEFS.flashStep;
-        const maxRange = (player.mass / 10 + 200) * def.maxRangeMultiplier;
-        const lookAhead = maxRange * 0.35; // Follow up to 35% of max range
-        camX += skillDrag.vector.x * lookAhead;
-        camY += skillDrag.vector.y * lookAhead;
+        const mag = Math.sqrt(skillDrag.vector.x**2 + skillDrag.vector.y**2);
+        
+        // Threshold: Only shift if pulling beyond 80% of max range
+        if (mag > 0.8) {
+          const intensity = (mag - 0.8) / 0.2; // 0.0 to 1.0
+          const easedIntensity = intensity * intensity; // Smooth ease-in
+          
+          const def = SKILL_DEFS.flashStep;
+          const maxRange = (player.mass / 10 + 200) * def.maxRangeMultiplier;
+          const lookAhead = maxRange * 0.45 * easedIntensity;
+          
+          // Normalized direction
+          const ux = skillDrag.vector.x / mag;
+          const uy = skillDrag.vector.y / mag;
+          
+          camX += ux * lookAhead;
+          camY += uy * lookAhead;
+        }
       }
     }
 
@@ -2839,20 +2852,15 @@ async function executeFlashStep() {
     targetX = player.body.position.x + Math.cos(moveAngle) * d;
     targetY = player.body.position.y + Math.sin(moveAngle) * d;
   } else {
-    // PC 模式：使用穩定的螢幕差值計算，防止攝影機移動干擾瞄準
-    const playerGlobal = app.stage.toGlobal(player.body.position);
-    const dx = (mousePos.x - playerGlobal.x) / app.stage.scale.x;
-    const dy = (mousePos.y - playerGlobal.y) / app.stage.scale.y;
-    
-    const dist = Math.sqrt(dx * dx + dy * dy);
+    // PC 模式：使用滑鼠座標
+    const screenPos = new PIXI.Point(mousePos.x, mousePos.y);
+    const worldMouse = app.stage.toLocal(screenPos);
+    const diff = Matter.Vector.sub(worldMouse, player.body.position);
+    const dist = Matter.Vector.magnitude(diff);
     const clampedDist = Math.min(dist, maxDist);
-    if (dist > 0) {
-      targetX = player.body.position.x + (dx / dist) * clampedDist;
-      targetY = player.body.position.y + (dy / dist) * clampedDist;
-    } else {
-      targetX = player.body.position.x;
-      targetY = player.body.position.y;
-    }
+    const norm = Matter.Vector.normalise(diff);
+    targetX = player.body.position.x + norm.x * clampedDist;
+    targetY = player.body.position.y + norm.y * clampedDist;
   }
 
   // 邊界限制
@@ -2949,9 +2957,6 @@ function drawBladeSlash(start, end) {
 function cleanupFlashStepVisuals() {
   if (flashStepIndicator) { gameContainer.removeChild(flashStepIndicator); flashStepIndicator = null; }
   if (flashStepLine) { gameContainer.removeChild(flashStepLine); flashStepLine = null; }
-  // Reset drag vector
-  skillDrag.vector.x = 0;
-  skillDrag.vector.y = 0;
 }
 
 /** Point-to-segment distance helper */
@@ -3039,24 +3044,21 @@ function updateSkillEffects(delta) {
       tx = player.body.position.x + Math.cos(angle) * d;
       ty = player.body.position.y + Math.sin(angle) * d;
     } else {
-      // PC 模式：使用穩定的螢幕差值計算，防止攝影機移動干擾瞄準
-      const playerGlobal = app.stage.toGlobal(player.body.position);
-      const dx = (mousePos.x - playerGlobal.x) / app.stage.scale.x;
-      const dy = (mousePos.y - playerGlobal.y) / app.stage.scale.y;
-      
-      const dist = Math.sqrt(dx * dx + dy * dy);
+      const screenPos = new PIXI.Point(mousePos.x, mousePos.y);
+      const worldMouse = app.stage.toLocal(screenPos);
+      const diff = Matter.Vector.sub(worldMouse, player.body.position);
+      const dist = Matter.Vector.magnitude(diff);
       const d = Math.min(dist, maxDist);
-      const nx = dist > 0 ? dx / dist : 0;
-      const ny = dist > 0 ? dy / dist : 0;
+      const norm = Matter.Vector.normalise(diff);
       
-      tx = player.body.position.x + nx * d;
-      ty = player.body.position.y + ny * d;
+      // [FIX] Update skillDrag.vector for camera focus logic
+      skillDrag.vector = {
+        x: norm.x * (d / maxDist),
+        y: norm.y * (d / maxDist)
+      };
 
-      // [NEW] Sync skillDrag.vector for PC mode to enable camera following
-      if (maxDist > 0) {
-        skillDrag.vector.x = nx * (d / maxDist);
-        skillDrag.vector.y = ny * (d / maxDist);
-      }
+      tx = player.body.position.x + norm.x * d;
+      ty = player.body.position.y + norm.y * d;
     }
     tx = Math.max(100, Math.min(CONFIG.worldSize - 100, tx));
     ty = Math.max(100, Math.min(CONFIG.worldSize - 100, ty));
