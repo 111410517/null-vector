@@ -2606,11 +2606,16 @@ function executeSprint() {
 
 // --- Overdrive ---
 function startOverdrive() {
-  skillState.isActive = true;
+  // 啟動加速狀態
   skillState.overdrivePhase = 'rampUp';
   skillState.overdriveElapsed = 0;
   skillState.overdriveSpeedMult = 1.01;
   player.isBoosting = true; 
+  
+  // 立即進入「充能模式」
+  startCooldown(skillState);
+  // 強制重新標記為活躍，因為 startCooldown 會將其設為 false
+  skillState.isActive = true;
 }
 
 function endOverdrive() {
