@@ -2131,8 +2131,8 @@ body.skill-channeling #app {
   /* 右上角狀態欄 (Mobile Stats Corner) */
   .mobile-stats-corner {
     position: absolute;
-    top: env(safe-area-inset-top, 25px);
-    right: env(safe-area-inset-right, 35px);
+    top: calc(env(safe-area-inset-top, 0px) + 30px);
+    right: calc(env(safe-area-inset-right, 0px) + 40px);
     display: flex !important;
     flex-direction: column;
     gap: 8px;
@@ -2153,7 +2153,7 @@ body.skill-channeling #app {
   /* 側邊導航列 (Mobile Nav Bar) */
   .mobile-nav-bar {
     position: absolute;
-    left: env(safe-area-inset-left, 25px);
+    left: calc(env(safe-area-inset-left, 0px) + 30px);
     top: 50%;
     transform: translateY(-50%);
     display: flex !important;
@@ -2187,7 +2187,7 @@ body.skill-channeling #app {
     z-index: 1000;
     display: none; 
     flex-direction: column;
-    padding: env(safe-area-inset-top, 40px) env(safe-area-inset-right, 60px) env(safe-area-inset-bottom, 40px) env(safe-area-inset-left, 60px);
+    padding: calc(env(safe-area-inset-top, 0px) + 40px) calc(env(safe-area-inset-right, 0px) + 60px) calc(env(safe-area-inset-bottom, 0px) + 40px) calc(env(safe-area-inset-left, 0px) + 60px);
     box-sizing: border-box;
     animation: overlayFadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
     border: none !important;
@@ -2201,8 +2201,8 @@ body.skill-channeling #app {
 
   .close-overlay-btn {
     position: absolute;
-    top: env(safe-area-inset-top, 30px);
-    right: env(safe-area-inset-right, 30px);
+    top: calc(env(safe-area-inset-top, 0px) + 30px);
+    right: calc(env(safe-area-inset-right, 0px) + 35px);
     width: 50px; height: 50px;
     background: rgba(255, 255, 255, 0.08);
     border: none;
@@ -2258,16 +2258,16 @@ body.skill-channeling #app {
   }
 
   .top-left { 
-    top: env(safe-area-inset-top, 20px) !important; 
-    left: env(safe-area-inset-left, 20px) !important; 
+    top: calc(env(safe-area-inset-top, 0px) + 25px) !important; 
+    left: calc(env(safe-area-inset-left, 0px) + 25px) !important; 
     gap: 12px !important;
   }
   #minimap-container { width: 95px !important; height: 95px !important; }
   .pause-btn { width: 40px !important; height: 40px !important; }
 
   .leaderboard { 
-    top: env(safe-area-inset-top, 20px) !important; 
-    right: env(safe-area-inset-right, 20px) !important; 
+    top: calc(env(safe-area-inset-top, 0px) + 25px) !important; 
+    right: calc(env(safe-area-inset-right, 0px) + 25px) !important; 
     width: 170px !important; 
     padding: 12px !important; 
     background: rgba(0, 0, 0, 0.6) !important;
@@ -2276,11 +2276,11 @@ body.skill-channeling #app {
   .leaderboard h2 { font-size: 0.65rem !important; }
   .leaderboard-item { font-size: 0.65rem !important; padding: 5px 10px !important; }
 
-  .game-timer { top: env(safe-area-inset-top, 18px) !important; font-size: 1.1rem !important; }
+  .game-timer { top: calc(env(safe-area-inset-top, 0px) + 20px) !important; font-size: 1.1rem !important; }
   
   .controls-ui { 
     height: 140px !important; 
-    padding: 0 env(safe-area-inset-right, 40px) env(safe-area-inset-bottom, 20px) env(safe-area-inset-left, 40px) !important; 
+    padding: 0 calc(env(safe-area-inset-right, 0px) + 45px) calc(env(safe-area-inset-bottom, 0px) + 25px) calc(env(safe-area-inset-left, 0px) + 45px) !important; 
   }
   .joystick-zone, .skill-button-zone { width: 100px !important; height: 100px !important; }
   
@@ -2292,7 +2292,7 @@ body.skill-channeling #app {
     background: none !important;
     border: none !important;
     box-shadow: none !important;
-    padding: 0 40px !important;
+    padding: 30px 60px !important;
   }
   .reward-title { font-size: 3.5rem !important; letter-spacing: 12px !important; margin-bottom: 10px !important; }
   .reward-panel { border: none !important; background: rgba(255, 255, 255, 0.04) !important; border-radius: 28px !important; padding: 30px !important; min-width: 320px; }
