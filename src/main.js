@@ -905,8 +905,8 @@ function update(delta) {
   const followLerp = 0.1;
 
   if (player) {
-    // 手機端使用更小的初始縮放（0.6），讓視野更開闊
-    const baseZoom = isTouchDevice ? 0.6 : 0.85;
+    // 手機端使用更小的初始縮放（0.55），讓視野更開闊
+    const baseZoom = isTouchDevice ? 0.55 : 0.85;
     // 讓視野隨體型成長而縮放得更快（0.0006 -> 0.0012）
     let targetZoom = Math.max(minZoom, baseZoom / (1 + (player.mass - CONFIG.initialMass) * 0.0012));
     if (player.isBoosting) targetZoom *= 0.85; 
