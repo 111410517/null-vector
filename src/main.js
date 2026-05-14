@@ -25,7 +25,7 @@ let nodeLayer, entityLayer, virusLayer, powerupLayer, vfxLayer, gameContainer;
 let player, entities = [], nodes = [], powerups = [];
 let miniVFX = [];
 let mousePos = { x: 0, y: 0 };
-let joystick = { active: false, vector: { x: 0, y: 0 } };
+let joystick = { active: false, vector: { x: 0, y: 0 }, touchId: null };
 let isGameOver = false;
 let isGameRunning = false;
 let isPaused = false;
@@ -35,7 +35,7 @@ let spawnedNPCs = 0; // Track spawned NPCs for win condition
 // 手機設備檢測
 const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 let joyZone, joyThumb;
-let skillDrag = { active: false, startX: 0, startY: 0, vector: { x: 0, y: 0 } };
+let skillDrag = { active: false, startX: 0, startY: 0, vector: { x: 0, y: 0 }, touchId: null };
 let startTime = 0;
 let elapsedTime = 0;
 let tutorialPauseStart = 0;
@@ -110,7 +110,9 @@ async function init() {
   app = new PIXI.Application();
   await app.init({
     width: window.innerWidth, height: window.innerHeight,
-    backgroundColor: CONFIG.bgColor, antialias: true, resizeTo: window
+    backgroundColor: CONFIG.bgColor, antialias: true, resizeTo: window,
+    resolution: window.devicePixelRatio || 1,
+    autoDensity: true
   });
   updateLoadingProgress(30);
   document.getElementById('app').prepend(app.canvas);
@@ -1350,9 +1352,12 @@ function setupInputs() {
     
     // 如果是觸控，啟動拖動瞄準模式
     if (e && e.touches) {
+      // 找到觸發此事件的新觸摸點
+      const touch = e.changedTouches ? e.changedTouches[0] : e.touches[0];
       skillDrag.active = true;
-      skillDrag.startX = e.touches[0].clientX;
-      skillDrag.startY = e.touches[0].clientY;
+      skillDrag.touchId = touch.identifier;
+      skillDrag.startX = touch.clientX;
+      skillDrag.startY = touch.clientY;
       skillDrag.vector = { x: 0, y: 0 };
     }
 
@@ -1362,26 +1367,51 @@ function setupInputs() {
     }
     handleSkillActivation();
   };
-  const deactivateSkill = () => {
+
+  const deactivateSkill = (e) => {
     if (!player) return;
-    player.isBoosting = false;
-    
-    if (skillDrag.active) {
-      skillDrag.active = false;
+
+    // 如果是觸控，檢查是否是當初啟動技能的那個 ID
+    if (e && e.changedTouches) {
+      let match = false;
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        if (e.changedTouches[i].identifier === skillDrag.touchId) {
+          match = true;
+          break;
+        }
+      }
+      if (!match) return; // 不是目標觸摸點抬起，不執行取消
     }
 
+    player.isBoosting = false;
+    skillDrag.active = false;
+    skillDrag.touchId = null;
     handleSkillDeactivation();
   };
 
   skillBtn.addEventListener('mousedown', (e) => activateSkill(e));
   window.addEventListener('mouseup', deactivateSkill);
-  skillBtn.addEventListener('touchstart', (e) => { e.preventDefault(); activateSkill(e); });
-  window.addEventListener('touchend', deactivateSkill);
+  skillBtn.addEventListener('touchstart', (e) => { 
+    e.preventDefault(); 
+    e.stopPropagation(); 
+    activateSkill(e); 
+  });
+  window.addEventListener('touchend', (e) => deactivateSkill(e));
 
   // 處理技能拖動瞄準 (Mobile Drag Aim)
   window.addEventListener('touchmove', (e) => {
     if (!skillDrag.active || !skillState.isChanneling) return;
-    const touch = e.touches[0];
+    
+    // 尋找對應的觸摸點
+    let touch = null;
+    for (let i = 0; i < e.touches.length; i++) {
+      if (e.touches[i].identifier === skillDrag.touchId) {
+        touch = e.touches[i];
+        break;
+      }
+    }
+    if (!touch) return;
+
     const dx = touch.clientX - skillDrag.startX;
     const dy = touch.clientY - skillDrag.startY;
     const dist = Math.sqrt(dx*dx + dy*dy);
@@ -1397,9 +1427,24 @@ function setupInputs() {
 
   joyZone = document.getElementById('joystick-container');
   joyThumb = document.getElementById('joystick-thumb');
+
   const handleJoy = (e) => {
     if (!joystick.active) return;
-    const touch = e.touches ? e.touches[0] : e;
+
+    let touch = null;
+    if (e.touches) {
+      // 尋找對應的觸摸點
+      for (let i = 0; i < e.touches.length; i++) {
+        if (e.touches[i].identifier === joystick.touchId) {
+          touch = e.touches[i];
+          break;
+        }
+      }
+    } else {
+      touch = e;
+    }
+    if (!touch) return;
+
     const rect = joyZone.getBoundingClientRect();
     const centerX = rect.left + rect.width / 2;
     const centerY = rect.top + rect.height / 2;
@@ -1414,11 +1459,41 @@ function setupInputs() {
   };
 
   joyZone.addEventListener('mousedown', () => joystick.active = true);
-  joyZone.addEventListener('touchstart', (e) => { e.preventDefault(); joystick.active = true; });
+  joyZone.addEventListener('touchstart', (e) => { 
+    e.preventDefault(); 
+    e.stopPropagation();
+    joystick.active = true; 
+    joystick.touchId = e.changedTouches[0].identifier;
+  });
+
   window.addEventListener('mousemove', handleJoy);
-  window.addEventListener('touchmove', handleJoy);
-  window.addEventListener('mouseup', () => { joystick.active = false; joyThumb.style.transform = 'translate(-50%, -50%)'; joystick.vector = { x: 0, y: 0 }; });
-  window.addEventListener('touchend', () => { joystick.active = false; joyThumb.style.transform = 'translate(-50%, -50%)'; joystick.vector = { x: 0, y: 0 }; });
+  window.addEventListener('touchmove', (e) => {
+    if (joystick.active) handleJoy(e);
+  });
+
+  window.addEventListener('mouseup', () => { 
+    joystick.active = false; 
+    joystick.touchId = null;
+    joyThumb.style.transform = 'translate(-50%, -50%)'; 
+    joystick.vector = { x: 0, y: 0 }; 
+  });
+  window.addEventListener('touchend', (e) => { 
+    if (joystick.active && e.changedTouches) {
+      let match = false;
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        if (e.changedTouches[i].identifier === joystick.touchId) {
+          match = true;
+          break;
+        }
+      }
+      if (match) {
+        joystick.active = false; 
+        joystick.touchId = null;
+        joyThumb.style.transform = 'translate(-50%, -50%)'; 
+        joystick.vector = { x: 0, y: 0 }; 
+      }
+    }
+  });
 
   window.addEventListener('contextmenu', e => e.preventDefault());
 }
