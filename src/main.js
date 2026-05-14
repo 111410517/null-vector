@@ -2977,22 +2977,23 @@ function updateCooldownUI() {
       overlay = document.createElement('div');
       overlay.className = 'cooldown-overlay';
       overlay.innerHTML = '<span class="cooldown-text"></span>';
-      skillBtn.appendChild(overlay);
-    }
     const def = SKILL_DEFS[skillState.skillId];
+    // 計算能量/進度百分比 (0-100)
+    // 對於能量制技能，100% 代表已滿；對於時間制，100% 代表冷卻中
+    let pct = 0;
     if (def && def.energyRequired) {
       const total = getSkillParam(def, 'energyRequired', skillState.level);
       const current = total - skillState.cooldownRemaining;
-      const pctDisplay = Math.floor((current / total) * 100);
-      overlay.querySelector('.cooldown-text').textContent = skillState.charges > 0 ? '' : `${pctDisplay}%`;
+      pct = Math.floor((current / total) * 100);
+      overlay.querySelector('.cooldown-text').textContent = skillState.charges > 0 ? '' : `${pct}%`;
+      // 能量制：填充代表能量，所以直接用 pct
+      overlay.style.clipPath = `inset(${100 - pct}% 0 0 0)`;
     } else {
       const secs = Math.ceil(skillState.cooldownRemaining / 1000);
       overlay.querySelector('.cooldown-text').textContent = skillState.charges > 0 ? '' : `${secs}s`;
+      // 時間制：填充代表冷卻進度
+      overlay.style.clipPath = `inset(${100 - (cdProgress * 100)}% 0 0 0)`;
     }
-    
-    // Clip from bottom upwards
-    const pct = cdProgress * 100;
-    overlay.style.clipPath = `inset(${100 - pct}% 0 0 0)`;
     
     if (skillState.charges <= 0) {
       skillBtn.classList.add('disabled');
@@ -3000,7 +3001,22 @@ function updateCooldownUI() {
       skillBtn.classList.remove('disabled');
     }
   } else {
-    if (overlay) { overlay.remove(); }
+    // 當冷卻完全結束 (cdProgress == 0)
+    const def = SKILL_DEFS[skillState.skillId];
+    if (def && def.energyRequired) {
+      // 能量制技能滿了以後，應保持全白填充
+      if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.className = 'cooldown-overlay';
+        overlay.innerHTML = '<span class="cooldown-text"></span>';
+        skillBtn.appendChild(overlay);
+      }
+      overlay.style.clipPath = 'inset(0% 0 0 0)';
+      overlay.querySelector('.cooldown-text').textContent = '';
+    } else if (overlay) {
+      overlay.remove();
+    }
+    
     // Also check if mass is insufficient
     const { canUse } = canUseSkill(skillState, player || { mass: 0 });
     if (!canUse && !skillState.isActive) {
