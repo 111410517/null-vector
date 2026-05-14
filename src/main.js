@@ -1203,7 +1203,14 @@ function handleInputs() {
 
     const def = SKILL_DEFS.flashStep;
     const maxRange = calculateRadius(player.mass) * def.maxRangeMultiplier;
-    const normalizedDist = Math.min(dist, maxRange) / maxRange;
+    
+    // [NEW] Soft Cap logic for "Elastic Boundary"
+    let rawNorm = dist / maxRange;
+    let normalizedDist = rawNorm;
+    if (rawNorm > 1.0) {
+      // The last 10% is much harder to reach (Asymptotic growth towards 1.1)
+      normalizedDist = 1.0 + 0.1 * (1.0 - Math.exp(-(rawNorm - 1.0) * 2.5));
+    }
 
     if (dist > 0) {
       const norm = Matter.Vector.normalise(diff);
@@ -1796,9 +1803,15 @@ function setupInputs() {
     const dx = touch.clientX - skillDrag.startX;
     const dy = touch.clientY - skillDrag.startY;
     const dist = Math.sqrt(dx * dx + dy * dy);
-    const maxDrag = 80; // 拖動 80px 達到最大射程
-    const normalizedDist = Math.min(dist, maxDrag) / maxDrag;
+    const maxDrag = 80; // 拖動 80px 達到軟上限起點
     const angle = Math.atan2(dy, dx);
+
+    // [NEW] Soft Cap logic for "Elastic Boundary" (Mobile)
+    let rawNorm = dist / maxDrag;
+    let normalizedDist = rawNorm;
+    if (rawNorm > 1.0) {
+      normalizedDist = 1.0 + 0.1 * (1.0 - Math.exp(-(rawNorm - 1.0) * 2.5));
+    }
 
     skillDrag.vector = {
       x: Math.cos(angle) * normalizedDist,
