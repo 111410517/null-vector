@@ -1003,7 +1003,7 @@ function update(delta) {
         ent.speedGroup.scale.set(inverseZoom);
       }
 
-      if (speed > 0.5 && displayPct > 0) {
+      if (speed > 0.5) {
         ent.dirIndicator.visible = true;
         const targetAngle = Math.atan2(vel.y, vel.x);
         let diff = targetAngle - ent.smoothRotation;
@@ -1022,16 +1022,20 @@ function update(delta) {
         ent.dirIndicator.x = Math.cos(ent.smoothRotation) * baseDist;
         ent.dirIndicator.y = Math.sin(ent.smoothRotation) * baseDist;
 
-        // Position Speed Indicator (Always to the absolute LEFT of the character, horizontal)
+        // Position Speed Indicator (Only if positive boost)
         if (ent.speedGroup) {
-          ent.speedGroup.visible = true;
-          const speedDist = baseDist + (40 * inverseZoom);
-          ent.speedGroup.x = -speedDist; // 絕對左側
-          ent.speedGroup.y = 0;
-          ent.speedGroup.rotation = 0; // 不跟隨旋轉，保持橫向
+          if (displayPct > 0) {
+            ent.speedGroup.visible = true;
+            const speedDist = baseDist + (40 * inverseZoom);
+            ent.speedGroup.x = -speedDist; // 絕對左側
+            ent.speedGroup.y = 0;
+            ent.speedGroup.rotation = 0; // 不跟隨旋轉，保持橫向
+          } else {
+            ent.speedGroup.visible = false;
+          }
         }
       } else {
-        ent.dirIndicator.visible = (speed > 0.5);
+        ent.dirIndicator.visible = false;
         if (ent.speedGroup) ent.speedGroup.visible = false;
       }
     }
