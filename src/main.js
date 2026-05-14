@@ -8,13 +8,8 @@ import { updateDemoAI } from './demo-ai.js';
 import {
   loadProgress, saveProgress, getLevelProgress, grantXP, grantGold,
   calculateXPReward, calculateGoldReward, unlockSkill, equipSkill, upgradeSkill,
-  getXPForNextLevel, getXPForCurrentLevel, MAX_LEVEL,
-  buySkin, equipSkinItem
+  getXPForNextLevel, getXPForCurrentLevel, MAX_LEVEL
 } from './progression.js';
-import {
-  SKIN_DEFS, RARITY_DEFS, getSkinDef, getAllSkins,
-  getSkinRarity, getBuffDescription
-} from './skins.js';
 import {
   SKILL_DEFS, createSkillState, getSkillDef, getSkillParam,
   canUseSkill, updateSkillCooldown, startCooldown, getCooldownProgress
@@ -52,19 +47,6 @@ let skillState = null;
 let killCount = 0;
 /** 閃現技能的全域時間縮放 (1.0 = 正常, 0.3 = 減速) */
 let timeScale = 1.0;
-
-/**
- * 取得當前玩家皮膚的 Buff 乘數
- * @param {string} buffType - buff 類型：speed | pickupRange | xpGain | goldGain | cooldown
- * @returns {number} 乘數值（如 1.02 代表 +2%，0.98 代表 -2%）
- */
-function getPlayerSkinBuff(buffType) {
-  const skinDef = getSkinDef(progress.skins.equipped);
-  if (!skinDef.buff || skinDef.buff.type !== buffType) return 1.0;
-  // cooldown 是減少型，其餘是增加型
-  if (buffType === 'cooldown') return 1.0 - skinDef.buff.value;
-  return 1.0 + skinDef.buff.value;
-}
 
 const NPC_NAMES = [
   "Shadow_Hunter", "Zephyr", "Apex_Void", "CyberPulse", "Neon_Ghost",
@@ -348,26 +330,17 @@ function createEntity(x, y, mass, name, isPlayer) {
   nameLabel.anchor.set(0.5, 1.2);
   container.addChild(nameLabel);
 
-  // 3. Mass Label (Top Layer) — 顏色由皮膚定義決定
-  const skinDef = isPlayer ? getSkinDef(progress.skins.equipped) : null;
-  const massLabelColor = isPlayer && skinDef ? skinDef.massLabelColor : (isPlayer ? 0x000000 : 0xFFFFFF);
+  // 3. Mass Label (Top Layer)
   const massLabel = new PIXI.Text({
     text: Math.floor(mass),
     style: {
       fontFamily: 'Outfit', fontSize: 28, 
-      fill: massLabelColor, 
+      fill: isPlayer ? 0x000000 : 0xFFFFFF, 
       align: 'center', fontWeight: '900',
     }
   });
   massLabel.anchor.set(0.5, 0.5);
   container.addChild(massLabel);
-
-  // 4. Skin Overlay (眼鏡等裝飾)
-  let skinOverlay = null;
-  if (isPlayer && skinDef && skinDef.overlay === 'glasses') {
-    skinOverlay = new PIXI.Graphics();
-    container.addChild(skinOverlay);
-  }
   
   const indicator = new PIXI.Graphics();
   indicator.visible = false;
@@ -376,8 +349,6 @@ function createEntity(x, y, mass, name, isPlayer) {
   const entity = { 
     body, container, graphics, nameLabel, massLabel, indicator, 
     mass, name, isPlayer, 
-    skinId: isPlayer ? (progress.skins.equipped || 'default') : null,
-    skinOverlay,
     lives: 2,
     protectionTime: 180,
     isBoosting: false,
@@ -527,47 +498,7 @@ function drawEntityBody(g, isPlayer, radius, ent) {
   }
   
   g.closePath();
-
-  // 使用皮膚定義決定玩家填色
-  let fillColor = CONFIG.npcColor;
-  if (isPlayer && ent.skinId) {
-    const sd = getSkinDef(ent.skinId);
-    fillColor = sd.playerColor;
-  } else if (isPlayer) {
-    fillColor = CONFIG.playerColor;
-  }
-  g.fill({ color: fillColor });
-
-  // 皮膚描邊（若有）
-  if (isPlayer && ent.skinId) {
-    const sd = getSkinDef(ent.skinId);
-    if (sd.outlineColor !== null && sd.outlineWidth > 0) {
-      g.stroke({ width: sd.outlineWidth, color: sd.outlineColor, alpha: 0.8 });
-    }
-  }
-
-  // 皮膚裝飾覆蓋層（眼鏡等）
-  if (isPlayer && ent.skinOverlay && ent.skinId === 'nerd') {
-    const o = ent.skinOverlay;
-    o.clear();
-    const s = radius * 0.35;
-    // 左鏡框
-    o.circle(-s * 0.55, -radius * 0.1, s * 0.45);
-    o.stroke({ width: 2, color: 0x000000 });
-    // 右鏡框
-    o.circle(s * 0.55, -radius * 0.1, s * 0.45);
-    o.stroke({ width: 2, color: 0x000000 });
-    // 鏡腿
-    o.moveTo(-s, -radius * 0.1);
-    o.lineTo(-s * 1.2, -radius * 0.3);
-    o.moveTo(s, -radius * 0.1);
-    o.lineTo(s * 1.2, -radius * 0.3);
-    o.stroke({ width: 1.5, color: 0x000000 });
-    // 鼻樑
-    o.moveTo(-s * 0.1, -radius * 0.1);
-    o.lineTo(s * 0.1, -radius * 0.1);
-    o.stroke({ width: 1.5, color: 0x000000 });
-  }
+  g.fill({ color: isPlayer ? CONFIG.playerColor : CONFIG.npcColor });
 }
 
 // Helper to get the deformed radius at a specific angle
@@ -753,8 +684,7 @@ function update(delta) {
 
     // Update skill cooldown (only if game is actually running)
     if (isGameRunning && skillState) {
-      const cdBuff = getPlayerSkinBuff('cooldown'); // 0.98 means 2% faster CD
-      updateSkillCooldown(skillState, delta.elapsedMS / cdBuff); 
+      updateSkillCooldown(skillState, delta.elapsedMS); 
       updateSkillEffects(delta);
       updateCooldownUI();
     }
@@ -934,11 +864,6 @@ function update(delta) {
     
     drawEntityBody(ent.graphics, ent.isPlayer, radius, ent);
 
-    // 皮膚常駐 VFX
-    if (ent.isPlayer && ent.skinId && shouldUpdatePhysics) {
-      updateSkinAmbientVFX(ent, radius);
-    }
-
     const inverseZoom = 1 / app.stage.scale.x;
     ent.nameLabel.scale.set(inverseZoom);
     ent.massLabel.scale.set(inverseZoom);
@@ -1057,7 +982,7 @@ function handleInputs() {
     } else if (skillState && skillState.skillId === 'overdrive' && skillState.isActive) {
       boostMult = skillState.overdriveSpeedMult;
     }
-    const finalMult = boostMult * (player.speedMult || 1.0) * getPlayerSkinBuff('speed');
+    const finalMult = boostMult * (player.speedMult || 1.0);
     const force = CONFIG.baseForce * Math.pow(player.mass / 30, 0.8) * finalMult;
     
     Matter.Body.applyForce(player.body, player.body.position, { 
@@ -1068,13 +993,11 @@ function handleInputs() {
 }
 
 function triggerBoostParticles(ent) {
-  if (Math.random() > 0.6) return;
+  if (Math.random() > 0.6) return; // Increased frequency
   const frag = new PIXI.Graphics();
-  const s = 3 + Math.random() * 4;
-  // 使用皮膚 VFX 顏色
-  const skinVfxColor = (ent.isPlayer && ent.skinId) ? getSkinDef(ent.skinId).vfxColor : 0xFFFFFF;
+  const s = 3 + Math.random() * 4; // Slightly larger
   frag.circle(0, 0, s);
-  frag.fill({ color: skinVfxColor, alpha: 0.8 });
+  frag.fill({ color: 0xFFFFFF, alpha: 0.8 }); // Higher opacity
   
   // Spawn behind movement
   const vel = ent.body.velocity;
@@ -1102,207 +1025,8 @@ function triggerBoostParticles(ent) {
   app.ticker.add(fUpdate);
 }
 
-/**
- * 皮膚常駐 VFX — 根據皮膚定義每幀（限流）生成環境粒子
- * @param {object} ent - 玩家實體
- * @param {number} radius - 當前半徑
- */
-function updateSkinAmbientVFX(ent, radius) {
-  const skinDef = getSkinDef(ent.skinId);
-  if (!skinDef.ambientVFX) return;
 
-  const pos = ent.body.position;
-  const now = Date.now();
-  // 限流：不同特效有不同頻率
-  if (!ent._lastAmbientVFX) ent._lastAmbientVFX = 0;
-  const interval = {
-    staticSparks: 800, gridPulse: 2000, circuitSparks: 400,
-    orbitDots: 100, darkSmoke: 200, matrixRain: 300,
-    goldenGlow: 250, voidSuction: 150, prismGlow: 200,
-  }[skinDef.ambientVFX] || 500;
-  if (now - ent._lastAmbientVFX < interval) return;
-  ent._lastAmbientVFX = now;
 
-  const vfxColor = skinDef.vfxColor;
-
-  switch (skinDef.ambientVFX) {
-    case 'staticSparks': {
-      // 靜電小方塊碎片
-      const p = new PIXI.Graphics();
-      const s = 2 + Math.random() * 3;
-      p.rect(-s/2, -s/2, s, s);
-      p.fill({ color: 0xAAAAAA, alpha: 0.6 });
-      const a = Math.random() * Math.PI * 2;
-      p.x = pos.x + Math.cos(a) * radius * 1.1;
-      p.y = pos.y + Math.sin(a) * radius * 1.1;
-      spawnAmbientParticle(p, 0.03);
-      break;
-    }
-    case 'gridPulse': {
-      // 網格交叉點閃爍光點
-      const p = new PIXI.Graphics();
-      p.circle(0, 0, 3);
-      p.fill({ color: 0xFFFFFF, alpha: 0.9 });
-      const a = Math.random() * Math.PI * 2;
-      p.x = pos.x + Math.cos(a) * radius * 0.7;
-      p.y = pos.y + Math.sin(a) * radius * 0.7;
-      spawnAmbientParticle(p, 0.02, 0);
-      break;
-    }
-    case 'circuitSparks': {
-      // 綠色電流光點
-      const p = new PIXI.Graphics();
-      p.circle(0, 0, 2);
-      p.fill({ color: vfxColor, alpha: 0.8 });
-      const a = Math.random() * Math.PI * 2;
-      const r = radius * (0.8 + Math.random() * 0.4);
-      p.x = pos.x + Math.cos(a) * r;
-      p.y = pos.y + Math.sin(a) * r;
-      spawnAmbientParticle(p, 0.04);
-      break;
-    }
-    case 'orbitDots': {
-      // 公轉的波普圓點（不生成新的，用 ticker 驅動）
-      if (!ent._orbitDots) {
-        ent._orbitDots = [];
-        for (let i = 0; i < 4; i++) {
-          const dot = new PIXI.Graphics();
-          const s = 3 + i * 1.5;
-          dot.circle(0, 0, s);
-          dot.fill({ color: i % 2 === 0 ? 0x000000 : 0xFFFFFF, alpha: 0.6 });
-          dot._orbitAngle = (i / 4) * Math.PI * 2;
-          dot._orbitSpeed = 0.01 + i * 0.003;
-          dot._orbitDist = radius * (1.3 + i * 0.12);
-          gameContainer.addChild(dot);
-          ent._orbitDots.push(dot);
-        }
-      }
-      ent._orbitDots.forEach(dot => {
-        dot._orbitAngle += dot._orbitSpeed;
-        dot._orbitDist = radius * (1.3 + ent._orbitDots.indexOf(dot) * 0.12);
-        dot.x = pos.x + Math.cos(dot._orbitAngle) * dot._orbitDist;
-        dot.y = pos.y + Math.sin(dot._orbitAngle) * dot._orbitDist;
-      });
-      break;
-    }
-    case 'darkSmoke': {
-      // 黑色煙霧粒子
-      const p = new PIXI.Graphics();
-      const s = 4 + Math.random() * 5;
-      p.circle(0, 0, s);
-      p.fill({ color: 0x222222, alpha: 0.3 });
-      const a = Math.random() * Math.PI * 2;
-      p.x = pos.x + Math.cos(a) * radius;
-      p.y = pos.y + Math.sin(a) * radius;
-      spawnAmbientParticle(p, 0.015, -0.3);
-      break;
-    }
-    case 'matrixRain': {
-      // 綠色代碼字符下落
-      const chars = '01';
-      const t = new PIXI.Text({
-        text: chars[Math.floor(Math.random() * chars.length)],
-        style: { fontFamily: 'monospace', fontSize: 10, fill: vfxColor, fontWeight: '900' }
-      });
-      t.anchor.set(0.5);
-      const xOff = (Math.random() - 0.5) * radius * 1.5;
-      t.x = pos.x + xOff;
-      t.y = pos.y - radius * 1.2;
-      gameContainer.addChild(t);
-      let life = 1.0;
-      const anim = (d) => {
-        t.y += 1.5 * d.deltaTime;
-        life -= 0.02 * d.deltaTime;
-        t.alpha = life;
-        if (life <= 0) { gameContainer.removeChild(t); app.ticker.remove(anim); }
-      };
-      app.ticker.add(anim);
-      break;
-    }
-    case 'goldenGlow': {
-      // 金色光點粒子
-      const p = new PIXI.Graphics();
-      const s = 2 + Math.random() * 3;
-      p.circle(0, 0, s);
-      p.fill({ color: vfxColor, alpha: 0.7 });
-      const a = Math.random() * Math.PI * 2;
-      p.x = pos.x + Math.cos(a) * radius * 1.1;
-      p.y = pos.y + Math.sin(a) * radius * 1.1;
-      spawnAmbientParticle(p, 0.025, -0.5);
-      break;
-    }
-    case 'voidSuction': {
-      // 白色粒子被吸入核心
-      const p = new PIXI.Graphics();
-      p.circle(0, 0, 2);
-      p.fill({ color: 0xFFFFFF, alpha: 0.6 });
-      const a = Math.random() * Math.PI * 2;
-      const startDist = radius * (1.5 + Math.random() * 0.5);
-      p.x = pos.x + Math.cos(a) * startDist;
-      p.y = pos.y + Math.sin(a) * startDist;
-      gameContainer.addChild(p);
-      let t = 0;
-      const anim = (d) => {
-        t += 0.03 * d.deltaTime;
-        const curDist = startDist * (1 - t);
-        p.x = pos.x + Math.cos(a) * curDist;
-        p.y = pos.y + Math.sin(a) * curDist;
-        p.alpha = 0.6 * (1 - t);
-        p.scale.set(1 - t * 0.5);
-        if (t >= 1) { gameContainer.removeChild(p); app.ticker.remove(anim); }
-      };
-      app.ticker.add(anim);
-      break;
-    }
-    case 'prismGlow': {
-      // 彩虹光點
-      const p = new PIXI.Graphics();
-      const hue = Math.random() * 360;
-      const color = hslToHex(hue, 70, 65);
-      p.circle(0, 0, 2 + Math.random() * 2);
-      p.fill({ color, alpha: 0.7 });
-      const a = Math.random() * Math.PI * 2;
-      p.x = pos.x + Math.cos(a) * radius * 1.15;
-      p.y = pos.y + Math.sin(a) * radius * 1.15;
-      spawnAmbientParticle(p, 0.03, -0.4);
-      break;
-    }
-  }
-}
-
-/**
- * 生成一個通用的環境粒子（漂浮後消散）
- * @param {PIXI.Graphics} p - 粒子圖形
- * @param {number} fadeRate - 每幀透明度衰減率
- * @param {number} drift - Y 軸漂移速度（負值向上）
- */
-function spawnAmbientParticle(p, fadeRate = 0.03, drift = -0.5) {
-  gameContainer.addChild(p);
-  let life = 1.0;
-  const vx = (Math.random() - 0.5) * 0.5;
-  const anim = (d) => {
-    p.x += vx * d.deltaTime;
-    p.y += drift * d.deltaTime;
-    life -= fadeRate * d.deltaTime;
-    p.alpha = life * p.alpha;
-    if (life <= 0) { gameContainer.removeChild(p); app.ticker.remove(anim); }
-  };
-  app.ticker.add(anim);
-}
-
-/**
- * HSL 轉 Hex 色值（用於虹彩皮膚彩虹粒子）
- */
-function hslToHex(h, s, l) {
-  s /= 100; l /= 100;
-  const a = s * Math.min(l, 1 - l);
-  const f = n => {
-    const k = (n + h / 30) % 12;
-    const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
-    return Math.round(255 * color);
-  };
-  return (f(0) << 16) | (f(8) << 8) | f(4);
-}
 
 
 function triggerRespawnVFX(x, y) {
@@ -1410,9 +1134,7 @@ function checkCollisions(ent) {
   if (ent.isDestroyed) return;
   
   const pos = ent.body.position;
-  let radius = calculateRadius(ent.mass);
-  // 套用皮膚拾取範圍 buff
-  if (ent.isPlayer) radius *= getPlayerSkinBuff('pickupRange');
+  const radius = calculateRadius(ent.mass);
 
   // 1. Nodes (Allow eating even during protection)
   for (let i = nodes.length - 1; i >= 0; i--) {
@@ -2284,7 +2006,6 @@ function initProgressionUI() {
 
   refreshProgressDisplay();
   renderSkillsPage();
-  renderSkinsPage();
 }
 
 /**
@@ -2385,116 +2106,6 @@ function renderSkillsPage() {
       renderSkillsPage();
       refreshProgressDisplay();
     };
-  });
-}
-
-/**
- * 渲染皮膚商店頁面
- */
-function renderSkinsPage() {
-  const container = document.getElementById('skin-grid-container');
-  if (!container) return;
-
-  const skinGold = document.getElementById('skin-gold-amount');
-  if (skinGold) skinGold.textContent = progress.gold;
-
-  const skins = getAllSkins();
-  container.innerHTML = '';
-
-  skins.forEach(skin => {
-    const isOwned = progress.skins.owned.includes(skin.id);
-    const isEquipped = progress.skins.equipped === skin.id;
-    const canAfford = progress.gold >= skin.price;
-    const rarity = RARITY_DEFS[skin.rarity];
-
-    const card = document.createElement('div');
-    card.className = `skin-card rarity-${skin.rarity}`;
-    if (isEquipped) card.classList.add('equipped');
-    if (!isOwned && skin.price > 0) card.classList.add('locked');
-
-    // 預覽球
-    const preview = document.createElement('div');
-    preview.className = `skin-preview skin-${skin.id}`;
-    card.appendChild(preview);
-
-    // 名稱
-    const name = document.createElement('div');
-    name.className = 'skin-card-name';
-    name.textContent = skin.name;
-    card.appendChild(name);
-
-    // 稀有度
-    const rarityEl = document.createElement('div');
-    rarityEl.className = 'skin-card-rarity';
-    rarityEl.style.color = rarity.color;
-    rarityEl.textContent = rarity.label;
-    card.appendChild(rarityEl);
-
-    // Buff
-    if (skin.buff) {
-      const buff = document.createElement('div');
-      buff.className = 'skin-card-buff';
-      buff.textContent = getBuffDescription(skin.buff);
-      card.appendChild(buff);
-    }
-
-    // 操作區
-    const actions = document.createElement('div');
-    actions.className = 'skin-card-actions';
-
-    if (isEquipped) {
-      const status = document.createElement('div');
-      status.className = 'skin-card-status status-equipped';
-      status.textContent = '使用中';
-      card.appendChild(status);
-    } else if (isOwned) {
-      const btn = document.createElement('button');
-      btn.className = 'btn-skin-equip';
-      btn.textContent = '裝備';
-      btn.onclick = (e) => {
-        e.stopPropagation();
-        equipSkinItem(progress, skin.id);
-        saveProgress(progress);
-        renderSkinsPage();
-        refreshProgressDisplay();
-      };
-      actions.appendChild(btn);
-    } else if (skin.price > 0) {
-      const price = document.createElement('div');
-      price.className = 'skin-card-price';
-      price.textContent = `🪙 ${skin.price}`;
-      card.appendChild(price);
-
-      const btn = document.createElement('button');
-      btn.className = 'btn-buy';
-      btn.textContent = '購買';
-      btn.disabled = !canAfford;
-      btn.onclick = (e) => {
-        e.stopPropagation();
-        if (buySkin(progress, skin.id)) {
-          saveProgress(progress);
-          renderSkinsPage();
-          refreshProgressDisplay();
-        }
-      };
-      actions.appendChild(btn);
-    } else {
-      // 預設皮膚已擁有但未裝備
-      const btn = document.createElement('button');
-      btn.className = 'btn-skin-equip';
-      btn.textContent = '裝備';
-      btn.onclick = (e) => {
-        e.stopPropagation();
-        equipSkinItem(progress, skin.id);
-        saveProgress(progress);
-        renderSkinsPage();
-        refreshProgressDisplay();
-      };
-      actions.appendChild(btn);
-    }
-
-    card.appendChild(actions);
-    container.appendChild(card);
   });
 }
 
@@ -2920,8 +2531,8 @@ function updateCooldownUI() {
  * 顯示結算獎勵畫面（勝利或敗場）
  */
 async function showRewardScreen(isVictory) {
-  const xpReward = Math.floor(calculateXPReward(isVictory, elapsedTime, killCount) * getPlayerSkinBuff('xpGain'));
-  const goldReward = Math.floor(calculateGoldReward(isVictory, killCount) * getPlayerSkinBuff('goldGain'));
+  const xpReward = calculateXPReward(isVictory, elapsedTime, killCount);
+  const goldReward = calculateGoldReward(isVictory, killCount);
   
   // Capture initial state before granting
   const initialLevel = progress.level;
