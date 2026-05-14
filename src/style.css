@@ -714,6 +714,15 @@ body.skill-channeling #app {
   100% { opacity: 0; transform: translate(0, 0); filter: none; }
 }
 
+/* --- Mobile Elements (Hidden on Desktop) --- */
+.mobile-top-right-group,
+.mobile-nav-bar,
+.mobile-stats-corner,
+.close-overlay-btn,
+.m-install-btn {
+  display: none !important;
+}
+
 #reward-screen {
   position: fixed;
   top: 0;
@@ -2060,7 +2069,7 @@ body.skill-channeling #app {
 }
 
 /* --- Landscape Mobile Optimization (Radical Overhaul) --- */
-@media (orientation: landscape) and (max-height: 600px) {
+@media (orientation: landscape) and (max-height: 600px) and (max-width: 1024px) {
   #orientation-warning { display: none !important; }
   
   #start-menu {
@@ -2171,7 +2180,14 @@ body.skill-channeling #app {
     border: 1px solid rgba(255, 255, 255, 0.1) !important;
     color: #FFF !important;
     letter-spacing: 2px !important;
-    display: none; /* 預理由 JS 控制 */
+    display: block !important; /* 手機版顯示 */
+  }
+
+  .mobile-top-right-group,
+  .mobile-nav-bar,
+  .mobile-stats-corner,
+  .close-overlay-btn {
+    display: flex !important;
   }
 
   .desktop-only-install { display: none !important; }
@@ -2210,7 +2226,7 @@ body.skill-channeling #app {
   .m-nav-btn:active { transform: scale(0.9) translateX(5px); background: rgba(0, 255, 187, 0.2); border-color: #00FFBB; }
 
   /* 功能 Overlay (全螢幕模式) */
-  .feature-overlay {
+  #overlay-features, #overlay-guide {
     position: fixed;
     top: 0; left: 0; width: 100vw; height: 100vh;
     background: rgba(10, 10, 10, 0.95);
@@ -2228,7 +2244,7 @@ body.skill-channeling #app {
   }
   @keyframes overlayFadeIn { from { opacity: 0; transform: scale(1.05); } to { opacity: 1; transform: scale(1); } }
 
-  .feature-overlay.active { display: flex !important; }
+  #overlay-features.active, #overlay-guide.active { display: flex !important; }
 
   .close-overlay-btn {
     position: absolute;
