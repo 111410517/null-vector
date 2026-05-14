@@ -2683,8 +2683,10 @@ async function executeFlashStep() {
       updateCombo();
       showMassFeed(gainedMass, 'green');
       
-      // TRIGGER SHAKE IMMEDIATELY
-      screenShake = Math.max(screenShake, 60); 
+      // TRIGGER SHAKE WITH SLIGHT DELAY (to avoid being cancelled by high-speed movement interpolation)
+      setTimeout(() => {
+        screenShake = Math.max(screenShake, 60); 
+      }, 50); 
       
       shatterEntity(ent);
       
