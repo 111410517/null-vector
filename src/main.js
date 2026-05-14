@@ -194,9 +194,12 @@ async function init() {
   });
 
   document.querySelectorAll('.close-overlay-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
+    const closeHandler = (e) => {
+      e.stopPropagation();
       document.querySelectorAll('.feature-overlay').forEach(ov => ov.classList.remove('active'));
-    });
+    };
+    btn.addEventListener('click', closeHandler);
+    btn.addEventListener('touchstart', closeHandler, { passive: true });
   });
 
   document.getElementById('start-btn').onclick = () => {
