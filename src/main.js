@@ -1032,6 +1032,16 @@ function update(delta) {
         overlay.style.setProperty('--combo-glow', `${glow}px`);
         overlay.style.setProperty('--combo-opacity', opacity);
       }
+
+      // 倒數警告閃爍 (最後 1.5 秒)
+      const text = document.getElementById('combo-text-container');
+      if (text) {
+        if (COMBO_WINDOW - elapsed < 1500) {
+          text.classList.add('warning');
+        } else {
+          text.classList.remove('warning');
+        }
+      }
     }
   }
 
@@ -1232,7 +1242,6 @@ function updateCombo() {
 
   const overlay = document.getElementById('combo-overlay');
   const textContainer = document.getElementById('combo-text-container');
-  
   if (comboCount > 1) {
     const buff = getComboBuff();
     const reductionPct = Math.round((1 - buff) * 100);

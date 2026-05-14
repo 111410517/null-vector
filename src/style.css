@@ -2624,6 +2624,15 @@ body.skill-channeling #app {
   transform: scale(1) rotate(-2deg);
 }
 
+#combo-text-container.warning {
+  animation: comboWarn 0.5s ease-in-out infinite;
+}
+
+@keyframes comboWarn {
+  0%, 100% { opacity: 1; filter: brightness(1); }
+  50% { opacity: 0.6; filter: brightness(1.5); }
+}
+
 @keyframes massPop {
   0% { transform: scale(0.5); opacity: 0; }
   30% { transform: scale(1.4); opacity: 1; }
