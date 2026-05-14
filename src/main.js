@@ -1201,16 +1201,13 @@ function handleInputs() {
     const diff = Matter.Vector.sub(worldMouse, player.body.position);
     const dist = Matter.Vector.magnitude(diff);
 
-    const def = SKILL_DEFS.flashStep;
-    const maxRange = calculateRadius(player.mass) * def.maxRangeMultiplier;
-    
-    // [NEW] Soft Cap logic for "Elastic Boundary"
-    let rawNorm = dist / maxRange;
-    let normalizedDist = rawNorm;
-    if (rawNorm > 1.0) {
-      // The last 10% is much harder to reach (Asymptotic growth towards 1.1)
-      normalizedDist = 1.0 + 0.1 * (1.0 - Math.exp(-(rawNorm - 1.0) * 2.5));
-    }
+    const baseMaxRange = calculateRadius(player.mass) * def.maxRangeMultiplier;
+    const softLimit = baseMaxRange * 0.8;
+    // Damping logic: Beyond 80% range, the aim point moves much slower (0.3 factor)
+    const effectiveDist = dist <= softLimit ? dist : softLimit + (dist - softLimit) * 0.3;
+    const maxVisualRange = baseMaxRange * 1.15; // Extend total visual range to 115%
+    const finalDist = Math.min(effectiveDist, maxVisualRange);
+    const normalizedDist = finalDist / baseMaxRange;
 
     if (dist > 0) {
       const norm = Matter.Vector.normalise(diff);
@@ -1803,15 +1800,16 @@ function setupInputs() {
     const dx = touch.clientX - skillDrag.startX;
     const dy = touch.clientY - skillDrag.startY;
     const dist = Math.sqrt(dx * dx + dy * dy);
-    const maxDrag = 80; // 拖動 80px 達到軟上限起點
+    
+    // Elastic Damping for Mobile
+    const baseDrag = 80; 
+    const softLimit = baseDrag * 0.8;
+    const effectiveDrag = dist <= softLimit ? dist : softLimit + (dist - softLimit) * 0.3;
+    const maxVisualDrag = baseDrag * 1.15;
+    const finalDrag = Math.min(effectiveDrag, maxVisualDrag);
+    const normalizedDist = finalDrag / baseDrag;
+    
     const angle = Math.atan2(dy, dx);
-
-    // [NEW] Soft Cap logic for "Elastic Boundary" (Mobile)
-    let rawNorm = dist / maxDrag;
-    let normalizedDist = rawNorm;
-    if (rawNorm > 1.0) {
-      normalizedDist = 1.0 + 0.1 * (1.0 - Math.exp(-(rawNorm - 1.0) * 2.5));
-    }
 
     skillDrag.vector = {
       x: Math.cos(angle) * normalizedDist,
