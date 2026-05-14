@@ -454,17 +454,32 @@ function createEntity(x, y, mass, name, isPlayer) {
     entity.dirIndicator = dirIndicator;
 
     // [NEW] Speed Multiplier Indicator
-    const speedIndicator = new PIXI.Text({
-      text: '⚡ +0%',
+    const speedGroup = new PIXI.Container();
+    
+    const speedIcon = new PIXI.Graphics();
+    // Draw a sharp white lightning bolt
+    speedIcon.poly([0, 0, 8, 0, 3, 7, 9, 7, 1, 18, 5, 9, -1, 9]);
+    speedIcon.fill({ color: 0xFFFFFF });
+    speedIcon.scale.set(0.8);
+    
+    const speedText = new PIXI.Text({
+      text: '+0%',
       style: {
         fontFamily: 'Outfit', fontSize: 16, fill: 0xFFFFFF,
         fontWeight: '900',
         stroke: { color: 0x000000, width: 4, join: 'round' }
       }
     });
-    speedIndicator.anchor.set(0.5, 0.5);
-    container.addChild(speedIndicator);
-    entity.speedIndicator = speedIndicator;
+    speedText.anchor.set(0, 0.5);
+    speedText.x = 12; // Space after icon
+    
+    speedGroup.addChild(speedIcon);
+    speedGroup.addChild(speedText);
+    container.addChild(speedGroup);
+    
+    entity.speedIndicator = speedText;
+    entity.speedIcon = speedIcon;
+    entity.speedGroup = speedGroup;
   }
 
   // Draw initial life rings
@@ -977,9 +992,8 @@ function update(delta) {
       const sign = displayPct >= 0 ? '+' : '';
       
       if (ent.speedIndicator) {
-        ent.speedIndicator.text = `⚡ ${sign}${displayPct}%`;
-        ent.speedIndicator.style.fill = 0xFFFFFF; // 始終為白色
-        ent.speedIndicator.scale.set(inverseZoom);
+        ent.speedIndicator.text = `${sign}${displayPct}%`;
+        ent.speedGroup.scale.set(inverseZoom);
       }
 
       if (speed > 0.5) {
@@ -1002,16 +1016,16 @@ function update(delta) {
         ent.dirIndicator.y = Math.sin(ent.smoothRotation) * baseDist;
         
         // Position Speed Indicator (Always to the absolute LEFT of the character, horizontal)
-        if (ent.speedIndicator) {
-          ent.speedIndicator.visible = true;
+        if (ent.speedGroup) {
+          ent.speedGroup.visible = true;
           const speedDist = baseDist + (40 * inverseZoom);
-          ent.speedIndicator.x = -speedDist; // 絕對左側
-          ent.speedIndicator.y = 0;
-          ent.speedIndicator.rotation = 0; // 不跟隨旋轉，保持橫向
+          ent.speedGroup.x = -speedDist - (20 * inverseZoom); // Adjust for group width
+          ent.speedGroup.y = 0;
+          ent.speedGroup.rotation = 0; // 不跟隨旋轉，保持橫向
         }
       } else {
         ent.dirIndicator.visible = false;
-        if (ent.speedIndicator) ent.speedIndicator.visible = false;
+        if (ent.speedGroup) ent.speedGroup.visible = false;
       }
     }
   });
