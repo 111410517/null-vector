@@ -1419,6 +1419,19 @@ function setupInputs() {
   };
 
   skillBtn.addEventListener('mousedown', (e) => activateSkill(e));
+  
+  // [NEW] PC Mode: Global left-click to activate skill
+  window.addEventListener('mousedown', (e) => {
+    // 只有真正的滑鼠左鍵 (button 0) 且不是從觸控模擬的點擊才觸發
+    if (e.button === 0 && isGameRunning && !isPaused && !isGameOver) {
+      // 防止在點擊 UI 面板、按鈕或搖桿區時觸發技能
+      const isUI = e.target.closest('.secondary-panel, .main-panel, .guide-panel, .pause-menu, .tab-bar, .mobile-nav-bar, .mobile-top-right-group, .skill-button-zone, #skill-btn, .joystick-zone');
+      if (!isUI) {
+        activateSkill(e);
+      }
+    }
+  });
+
   window.addEventListener('mouseup', deactivateSkill);
   skillBtn.addEventListener('touchstart', (e) => { 
     e.preventDefault(); 
