@@ -303,6 +303,9 @@ function startGame() {
   document.getElementById('start-menu').style.display = 'none';
   document.querySelector('.ui-overlay').style.display = 'block';
 
+  // [NEW] 播放開場特效
+  triggerSpawnVFX(player.body.position.x, player.body.position.y);
+
   // 教學延遲 3 秒觸發
   setTimeout(() => {
     if (!isGameRunning) return;
@@ -1068,6 +1071,20 @@ function triggerBoostParticles(ent) {
 
 
 
+
+function triggerSpawnVFX(x, y) {
+  const ring = new PIXI.Graphics();
+  app.stage.addChild(ring);
+  let r = 5;
+  const rUpdate = (d) => {
+    r += 12 * d.deltaTime;
+    ring.clear();
+    ring.circle(x, y, r);
+    ring.stroke({ width: 2, color: 0xFFFFFF, alpha: 1 - r/400 });
+    if (r > 400) { app.stage.removeChild(ring); app.ticker.remove(rUpdate); }
+  };
+  app.ticker.add(rUpdate);
+}
 
 function triggerRespawnVFX(x, y) {
   const ring = new PIXI.Graphics();
