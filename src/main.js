@@ -1043,16 +1043,6 @@ function update(delta) {
         overlay.style.setProperty('--combo-opacity', opacity);
       }
 
-      // FPS 更新 (約一秒更新一次)
-      fpsUpdateTimer += delta.deltaTime;
-      if (fpsUpdateTimer >= 60) {
-        const fpsDisplay = document.getElementById('fps-display');
-        if (fpsDisplay) {
-          fpsDisplay.textContent = `fps ${Math.round(app.ticker.FPS)}`;
-        }
-        fpsUpdateTimer = 0;
-      }
-
       // 倒數警告閃爍 (最後 1.5 秒)
       const text = document.getElementById('combo-text-container');
       if (text) {
@@ -1062,6 +1052,18 @@ function update(delta) {
           text.classList.remove('warning');
         }
       }
+    }
+  }
+
+  // FPS 更新 (約一秒更新一次) - 移至最外層確保始終更新
+  if (isGameRunning) {
+    fpsUpdateTimer += delta.deltaTime;
+    if (fpsUpdateTimer >= 60) {
+      const fpsDisplay = document.getElementById('fps-display');
+      if (fpsDisplay) {
+        fpsDisplay.textContent = `fps ${Math.round(app.ticker.FPS)}`;
+      }
+      fpsUpdateTimer = 0;
     }
   }
 
