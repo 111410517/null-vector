@@ -272,7 +272,7 @@ function spawnNPC(index, customX, customY, customMass, isDemoScripted, avoidViru
   ent.isAlwaysBoosting = isAlwaysBoosting;
   ent.growthEfficiency = growthEfficiency || 1.0;
   ent.speedMult = speedMult || 1.0;
-  ent.protectionTime = customMass ? 0 : 180; 
+  ent.protectionTime = 0; // 進入遊戲不應該有保護時間
   ent.spawnDelay = customMass ? 0 : 1000;
   ent.efficiency = Math.random() > 0.5 ? 0.67 : 1.0;
 }
@@ -318,6 +318,14 @@ function startGame() {
 
   // 6. Start Spawning NPCs over time
   spawnedNPCs = 0;
+  
+  // [NEW] 立即對齊攝影機，防止瞬間移動
+  if (player) {
+    const baseZoom = isTouchDevice ? 0.55 : 0.85;
+    app.stage.scale.set(baseZoom);
+    app.stage.pivot.set(player.body.position.x, player.body.position.y);
+  }
+
   const spawnInterval = setInterval(() => {
     if (spawnedNPCs >= CONFIG.npcCount || !isGameRunning) {
       clearInterval(spawnInterval);
@@ -378,7 +386,7 @@ function createEntity(x, y, mass, name, isPlayer) {
     body, container, graphics, nameLabel, massLabel, indicator, 
     mass, name, isPlayer, 
     lives: 2,
-    protectionTime: 180,
+    protectionTime: 0, // 預設無保護時間，由復活邏輯觸發
     isBoosting: false,
     isDestroyed: false,
 
