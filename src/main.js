@@ -1073,26 +1073,13 @@ function update(delta) {
     if (skillState && skillState.skillId === 'flashStep' && skillState.isChanneling) {
       targetZoom *= 1.25; // Zoom in slightly while aiming
       
-      // Shift camera pivot towards the aim target ONLY when pulling near limit
+      // Shift camera pivot towards the aim target
       if (skillDrag.vector.x !== 0 || skillDrag.vector.y !== 0) {
-        const mag = Math.sqrt(skillDrag.vector.x**2 + skillDrag.vector.y**2);
-        
-        // Threshold: Only shift if pulling beyond 80% of max range
-        if (mag > 0.8) {
-          const intensity = (mag - 0.8) / 0.2; // 0.0 to 1.0
-          const easedIntensity = intensity * intensity; // Smooth ease-in
-          
-          const def = SKILL_DEFS.flashStep;
-          const maxRange = (player.mass / 10 + 200) * def.maxRangeMultiplier;
-          const lookAhead = maxRange * 0.45 * easedIntensity;
-          
-          // Normalized direction
-          const ux = skillDrag.vector.x / mag;
-          const uy = skillDrag.vector.y / mag;
-          
-          camX += ux * lookAhead;
-          camY += uy * lookAhead;
-        }
+        const def = SKILL_DEFS.flashStep;
+        const maxRange = (player.mass / 10 + 200) * def.maxRangeMultiplier;
+        const lookAhead = maxRange * 0.35; // Follow up to 35% of max range
+        camX += skillDrag.vector.x * lookAhead;
+        camY += skillDrag.vector.y * lookAhead;
       }
     }
 
@@ -1203,6 +1190,27 @@ function handleInputs() {
     joystick.vector = { x: 0, y: 0 };
     return;
   }
+
+  // --- PC Flash Step Aiming (Update skillDrag.vector for camera follow) ---
+  if (!isTouchDevice && skillState && skillState.skillId === 'flashStep' && skillState.isChanneling) {
+    const screenPos = new PIXI.Point(mousePos.x, mousePos.y);
+    const worldMouse = app.stage.toLocal(screenPos);
+    const diff = Matter.Vector.sub(worldMouse, player.body.position);
+    const dist = Matter.Vector.magnitude(diff);
+
+    const def = SKILL_DEFS.flashStep;
+    const maxRange = (player.mass / 10 + 200) * def.maxRangeMultiplier;
+    const normalizedDist = Math.min(dist, maxRange) / maxRange;
+
+    if (dist > 0) {
+      const norm = Matter.Vector.normalise(diff);
+      skillDrag.vector = {
+        x: norm.x * normalizedDist,
+        y: norm.y * normalizedDist
+      };
+    }
+  }
+
   // MOUSE CONTROL (PC Mode)
   // 如果是觸控設備或正在使用搖桿，則停用滑鼠位置偵測
   if (!joystick.active && !isTouchDevice) {
@@ -3044,24 +3052,14 @@ function updateSkillEffects(delta) {
       tx = player.body.position.x + Math.cos(angle) * d;
       ty = player.body.position.y + Math.sin(angle) * d;
     } else {
-      // [FIX] Stable Aiming: Calculate aim relative to screen center to avoid camera feedback loop
-      // ScreenCenter is the reference point because stage.position is always [width/2, height/2]
-      const dx = (mousePos.x - app.screen.width / 2) / app.stage.scale.x;
-      const dy = (mousePos.y - app.screen.height / 2) / app.stage.scale.y;
-      
-      const dist = Math.sqrt(dx * dx + dy * dy);
+      const screenPos = new PIXI.Point(mousePos.x, mousePos.y);
+      const worldMouse = app.stage.toLocal(screenPos);
+      const diff = Matter.Vector.sub(worldMouse, player.body.position);
+      const dist = Matter.Vector.magnitude(diff);
       const d = Math.min(dist, maxDist);
-      const ux = dist > 0 ? dx / dist : 0;
-      const uy = dist > 0 ? dy / dist : 0;
-      
-      // Update skillDrag.vector for camera focus logic
-      skillDrag.vector = {
-        x: ux * (d / maxDist),
-        y: uy * (d / maxDist)
-      };
-
-      tx = player.body.position.x + ux * d;
-      ty = player.body.position.y + uy * d;
+      const norm = Matter.Vector.normalise(diff);
+      tx = player.body.position.x + norm.x * d;
+      ty = player.body.position.y + norm.y * d;
     }
     tx = Math.max(100, Math.min(CONFIG.worldSize - 100, tx));
     ty = Math.max(100, Math.min(CONFIG.worldSize - 100, ty));
