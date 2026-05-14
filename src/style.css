@@ -2128,6 +2128,9 @@ body.skill-channeling #app {
     border-radius: 50px !important; 
   }
 
+  /* 隱藏中央重複的經驗/金幣顯示 */
+  .progress-bar-row { display: none !important; }
+
   /* 右上角狀態欄 (Mobile Stats Corner) */
   .mobile-stats-corner {
     position: absolute;
