@@ -17,9 +17,10 @@ const LEVEL_XP_TABLE = [
   500,   // Lv.3 → Lv.4
   850,   // Lv.4 → Lv.5
   1300,  // Lv.5 → Lv.6
+  2000,  // Lv.6 → Lv.7
 ];
 
-const MAX_LEVEL = 6;
+const MAX_LEVEL = 7;
 
 /**
  * 建立預設進度資料結構
