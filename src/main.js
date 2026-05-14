@@ -38,7 +38,8 @@ let tutorialPauseStart = 0;
 let miniCanvas, miniCtx;
 let boostAccumulator = 0;
 let boostTextTimer = 0;
-let rareItemSpawnTimer = 0; // New: respects isPaused
+let rareItemSpawnTimer = 0; 
+let virusRespawnTimer = 0; 
 
 // --- Progression State ---
 let progress = loadProgress();
@@ -698,6 +699,14 @@ function update(delta) {
           spawnRareItem();
         }
       }
+
+      // Update virus respawn timer
+      if (virusRespawnTimer > 0) {
+        virusRespawnTimer -= scaledDeltaMS;
+        if (virusRespawnTimer <= 0) {
+          spawnVirus();
+        }
+      }
     }
   }
 
@@ -1224,8 +1233,8 @@ function checkCollisions(ent) {
           viruses.splice(i, 1);
           i--;
           
-          // Respawn a new virus elsewhere after a delay
-          setTimeout(spawnVirus, 15000);
+          // Respawn a new virus elsewhere after a delay (via update loop)
+          virusRespawnTimer = 15000;
         }
       }
     }
@@ -1450,8 +1459,9 @@ function spawnRareItem() {
   if (isGameOver || !isGameRunning) return;
   
   // 1. 決定是否生成 (每30秒有一定機率)
+  rareItemSpawnTimer = 30000; // Reset timer for next attempt
+
   if (Math.random() > (CONFIG.rareItemProb || 0.7)) {
-    setTimeout(spawnRareItem, 30000);
     return;
   }
 
@@ -1550,8 +1560,7 @@ function spawnRareItem() {
     maxRadius: 60
   });
 
-  // 排定下一次嘗試
-  setTimeout(spawnRareItem, 30000);
+  // Reset timer for next cycle is already handled at the start of spawnRareItem
 }
 
 function releaseFragments(x, y, totalMass, triggerer) {
@@ -1913,9 +1922,16 @@ function togglePause() {
   if (isPaused) {
     pauseMenu.style.display = 'flex';
     uiOverlay.style.display = 'none';
+    app.ticker.speed = 0;
+    tutorialPauseStart = Date.now();
   } else {
     pauseMenu.style.display = 'none';
     uiOverlay.style.display = 'block';
+    app.ticker.speed = 1;
+    if (tutorialPauseStart) {
+      startTime += Date.now() - tutorialPauseStart;
+      tutorialPauseStart = 0;
+    }
   }
 }
 
@@ -2591,7 +2607,8 @@ async function showRewardScreen(isVictory) {
   xpValue.textContent = '+0 XP';
   goldValue.textContent = '+0';
   spRow.style.display = 'none';
-  banner.classList.remove('active');
+  banner.style.display = 'none';
+  banner.classList.remove('animate');
   document.getElementById('reward-actions').classList.remove('show');
 
   // 2. Parallel Staggered Animations
@@ -2617,7 +2634,8 @@ async function showRewardScreen(isVictory) {
       barFill.style.transition = 'width 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)';
       barFill.style.width = `${getLevelProgress(progress) * 100}%`;
       levelLabel.textContent = `Lv.${progress.level}`;
-      banner.classList.add('active');
+      banner.style.display = 'block';
+      banner.classList.add('animate');
     } else {
       barFill.style.transition = 'width 1.2s cubic-bezier(0.34, 1.56, 0.64, 1)';
       barFill.style.width = `${getLevelProgress(progress) * 100}%`;
@@ -2698,17 +2716,22 @@ function triggerConfetti() {
 
 /** 暫停遊戲並記錄暫停起始時間（用於計時補償） */
 function pauseForTutorial() {
+  if (isPaused) return; // 防止重複重置暫停點
   isPaused = true;
+  app.ticker.speed = 0;
   tutorialPauseStart = Date.now();
 }
 
 /** 恢復遊戲並補償暫停期間的計時偏差 */
 function resumeFromTutorial() {
+  if (!isPaused) return; // 如果本來就沒暫停則忽略
+  
   if (tutorialPauseStart) {
     startTime += Date.now() - tutorialPauseStart;
     tutorialPauseStart = 0;
   }
   isPaused = false;
+  app.ticker.speed = 1;
 }
 
 // ==========================================================

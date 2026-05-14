@@ -41,7 +41,8 @@
       <div id="game-timer" class="game-timer">
         <span id="timer-text">00:00</span>
         <div id="central-heart-container" class="central-heart-container">
-          <div id="central-heart" class="heart-full"></div>
+          <div id="heart-1" class="heart-icon heart-full"></div>
+          <div id="heart-2" class="heart-icon heart-full"></div>
         </div>
       </div>
 
@@ -322,7 +323,7 @@
           </div>
         </div>
 
-        <div class="end-game-actions">
+        <div class="end-game-actions" id="reward-actions">
           <button onclick="restartGame()" class="end-game-btn">重新開始</button>
           <button onclick="window.returnToMenu()" class="end-game-btn secondary">返回主畫面</button>
         </div>
@@ -362,11 +363,11 @@
     </div>
   </div>
   <!-- Tutorial Overlay -->
-  <div id="tutorial-overlay" class="tutorial-overlay" style="display:none">
+  <div id="tutorial-overlay" class="tutorial-overlay">
+    <div id="tutorial-skip" class="tutorial-skip">Skip >></div>
     <div class="tutorial-box">
       <div class="tutorial-content">
         <p id="tutorial-text"></p>
-        <button id="tutorial-next" class="primary-btn">下一頁</button>
       </div>
       <div class="tutorial-arrow"></div>
     </div>

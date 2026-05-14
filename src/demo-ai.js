@@ -93,13 +93,8 @@ export function updateDemoAI(npc, delta, gameState) {
   // Visual & Physics State
   npc.isBoosting = npc.noBoost ? false : (npc.isAlwaysBoosting ? true : intention.isBoosting);
   
-  // DEMO RESTRICTION: Keep Speedster small to maintain max speed
-  if (npc.isAlwaysBoosting) {
-    npc.mass = 25;
-  }
-
-  // Apply Force - Boosted base speed for demo effect
-  const baseForce = CONFIG.baseForce * Math.pow(npc.mass / 30, 0.8) * 1.2; 
+  // Apply Force (Slightly boosted for demo)
+  const baseForce = CONFIG.baseForce * Math.pow(npc.mass / 30, 0.8) * 1.2 * (npc.speedMult || 1.0); 
   const boostMult = npc.isBoosting ? 1.5 : 1.0; 
   Matter.Body.applyForce(npc.body, npc.body.position, Matter.Vector.mult(moveVec, baseForce * intention.power * boostMult));
 }

@@ -43,6 +43,9 @@ function createDefaultProgress() {
       equipped: 'default',
     },
     tutorialDone: false,
+    tutorialIntroDone: false,
+    tutorialSkillGameDone: false,
+    _debugId: Math.random()
   };
 }
 
@@ -57,17 +60,22 @@ export function loadProgress() {
       const data = JSON.parse(raw);
       // 向前相容：合併預設值以確保新欄位存在
       const defaults = createDefaultProgress();
-      return {
+      const merged = {
         ...defaults,
         ...data,
         skills: { ...defaults.skills, ...data.skills },
         skins: { ...defaults.skins, ...data.skins },
       };
+      merged._debugId = Math.random(); // New instance, new ID
+      console.log('[Progression] Loaded from storage. ID:', merged._debugId, 'Level:', merged.level);
+      return merged;
     }
   } catch (e) {
     console.warn('[Progression] 載入進度失敗，使用預設值', e);
   }
-  return createDefaultProgress();
+  const fresh = createDefaultProgress();
+  console.log('[Progression] Created fresh default. ID:', fresh._debugId);
+  return fresh;
 }
 
 /**
@@ -123,6 +131,7 @@ export function getLevelProgress(progress) {
  * @returns {{ levelsGained: number, skillPointsGained: number }} 升級資訊
  */
 export function grantXP(progress, xpGain) {
+  console.log('[Progression] grantXP called. ID:', progress._debugId, 'Gain:', xpGain);
   const result = { levelsGained: 0, skillPointsGained: 0 };
   progress.xp += xpGain;
 

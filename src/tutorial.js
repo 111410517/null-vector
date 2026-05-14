@@ -59,7 +59,14 @@ const STEPS = {
     clickAnywhere: false,
   },
   3: {
-    text: '每升一級可以獲得 1 個技能點。目前你已經自動解鎖了「衝刺」技能，點擊「裝備」來啟用它！',
+    text: '每升一級可以獲得 1 個技能點，你可以在這裡查看目前擁有的點數。',
+    target: () => document.querySelector('.skill-points-card'),
+    pos: 'bottom',
+    clickAnywhere: true,
+    next: 11,
+  },
+  11: {
+    text: '目前你已經自動解鎖了「衝刺」技能，點擊「裝備」來啟用它！',
     target: () => document.querySelector('.skill-card[data-skill="sprint"] .btn-equip'),
     pos: 'top',
     clickAnywhere: false,
@@ -297,7 +304,7 @@ export function setupTutorialHooks() {
  * @param {string} skillId - 被裝備的技能 ID
  */
 export function onSkillEquipped(skillId) {
-  if (tutorialStep === 3 && skillId === 'sprint') {
+  if (tutorialStep === 11 && skillId === 'sprint') {
     deps.progress.tutorialDone = true;
     deps.saveProgress(deps.progress);
     showTutorialStep(0);
