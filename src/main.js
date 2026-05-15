@@ -1598,9 +1598,9 @@ function checkCollisions(ent) {
         ent.mass += tier.mass;
         ent.speedMult += tier.speed;
 
-        // 觸發對應顏色的特效
+        // 觸發對應顏色的特效 (所有品質皆觸發)
         const hexColor = '#' + (tier.color).toString(16).padStart(6, '0');
-        if (tier.label === 'IRIDESCENT') triggerScreenEffect('legendary');
+        triggerScreenEffect('legendary', hexColor);
 
         // 補充技能能量
         if (skillState) addSkillEnergy(skillState, tier.mass);
@@ -2293,8 +2293,10 @@ function renderMinimap() {
     miniCtx.fillStyle = hexColor;
     miniCtx.shadowBlur = 8;
     miniCtx.shadowColor = hexColor;
+    // 稀罕物在小地圖上加入脈衝動畫，使其更明顯
+    const pulse = 1 + Math.sin(Date.now() * 0.008) * 0.4;
     miniCtx.beginPath();
-    miniCtx.arc(x, y, 4, 0, Math.PI * 2);
+    miniCtx.arc(x, y, 4 * pulse, 0, Math.PI * 2);
     miniCtx.fill();
     miniCtx.shadowBlur = 0;
   });
