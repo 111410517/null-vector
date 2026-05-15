@@ -992,7 +992,7 @@ function update(delta) {
               if (ent.isPlayer && !other.isPlayer) {
                 killCount++;
                 updateCombo();
-                showMassFeed(gainedMass, 'kill');
+                showMassFeed(gainedMass, 'green');
                 // 補充技能能量 (擊殺轉化率降低為 10%)
                 if (skillState) addSkillEnergy(skillState, gainedMass * 0.1);
               }
