@@ -1472,14 +1472,9 @@ function showMassFeed(amount, type) {
   const container = document.getElementById('mass-feed-container');
   if (!container) return;
 
-  // 嘗試與最後一個項目合併
+  // 特殊處理 +2 (小點點) 的合併邏輯：不累加，僅觸發脈衝
   const lastItem = container.lastElementChild;
-  if (lastItem && lastItem.dataset.type === type && !lastItem.dataset.removed) {
-    const currentVal = parseInt(lastItem.textContent);
-    const newVal = currentVal + val;
-    const sign = newVal > 0 ? '+' : '';
-    lastItem.textContent = `${sign}${newVal}`;
-
+  if (val === 2 && lastItem && lastItem.textContent === '+2' && !lastItem.dataset.removed) {
     // 觸發脈衝動畫
     lastItem.classList.remove('pulse');
     void lastItem.offsetWidth; // 強制重繪
@@ -1497,7 +1492,7 @@ function showMassFeed(amount, type) {
     return;
   }
 
-  // 否則新增項目
+  // 否則新增項目 (包括所有非 +2 的變動)
   const item = document.createElement('div');
   item.className = `mass-feed-item mass-${type}`;
   item.dataset.type = type;
