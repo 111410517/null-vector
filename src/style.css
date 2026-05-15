@@ -2620,6 +2620,40 @@ body.hide-cursor, body.hide-cursor * {
   font-size: 2.8rem;
 }
 
+.mass-kill {
+  font-size: 3.2rem;
+  font-weight: 900;
+  color: #00FF88;
+  text-shadow: 
+    0 0 10px rgba(0, 255, 136, 0.8),
+    0 0 20px rgba(0, 255, 136, 0.4),
+    2px 2px 0px #004422;
+  letter-spacing: -2px;
+  animation: killImpact 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.5) forwards;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.mass-kill::before {
+  content: 'KILL';
+  font-size: 0.8rem;
+  background: #00FF88;
+  color: #002211;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-right: 10px;
+  transform: rotate(-10deg);
+  font-weight: 900;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+}
+
+@keyframes killImpact {
+  0% { transform: scale(0) rotate(-15deg); opacity: 0; filter: brightness(3); }
+  50% { transform: scale(1.3) rotate(5deg); opacity: 1; filter: brightness(1.5); }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; filter: brightness(1); }
+}
+
 .mass-feed-item.pulse {
   /* 使用單獨屬性避免覆蓋其他動畫效果 */
   animation-name: massPulse;
