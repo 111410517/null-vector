@@ -1472,9 +1472,10 @@ function showMassFeed(amount, type) {
   const container = document.getElementById('mass-feed-container');
   if (!container) return;
 
-  // 特殊處理 +2 (小點點) 的合併邏輯：不累加，僅觸發脈衝
+  // 特殊處理 +1 或 +2 (小點點) 的合併邏輯：不累加，僅觸發脈衝
   const lastItem = container.lastElementChild;
-  if (val === 2 && lastItem && lastItem.textContent === '+2' && !lastItem.dataset.removed) {
+  const isSmallGain = (val === 1 || val === 2);
+  if (isSmallGain && lastItem && (lastItem.textContent === '+1' || lastItem.textContent === '+2') && !lastItem.dataset.removed) {
     // 觸發脈衝動畫
     lastItem.classList.remove('pulse');
     void lastItem.offsetWidth; // 強制重繪
@@ -1563,7 +1564,9 @@ function checkCollisions(ent) {
       // UNIFIED: All entities gain 100% mass from nodes
       // No more NPC nerf
 
-      if (ent.isBoosting) addedMass *= 0.5; // Penalty for eating while boosting
+      // Penalty for eating while boosting (only for manual boost, not skills)
+      const isManualBoost = ent.isBoosting && !(ent.isPlayer && skillState && !skillState.isDefaultBoost && skillState.isActive);
+      if (isManualBoost) addedMass *= 0.5; // Penalty for eating while manual boosting
 
       const finalGrowthEff = ent.growthEfficiency !== undefined ? ent.growthEfficiency : (ent.efficiency || 1.0);
       ent.mass += addedMass * finalGrowthEff;
