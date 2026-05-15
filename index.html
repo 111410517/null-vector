@@ -15,14 +15,14 @@
     href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&family=Noto+Sans+TC:wght@400;700;900&display=swap"
     rel="stylesheet">
   <link rel="manifest" href="./manifest.json">
-  <script type="module" crossorigin src="./assets/index-Cn-vq1Bs.js"></script>
+  <script type="module" crossorigin src="./assets/index-x6eqOKNa.js"></script>
   <link rel="modulepreload" crossorigin href="./assets/Geometry-BRmJIpJw.js">
   <link rel="modulepreload" crossorigin href="./assets/RenderTargetSystem-bNlwA5Xe.js">
   <link rel="modulepreload" crossorigin href="./assets/getTextureBatchBindGroup-CSlSSh-e.js">
   <link rel="modulepreload" crossorigin href="./assets/BufferResource-rxIEinoM.js">
   <link rel="modulepreload" crossorigin href="./assets/canvasUtils-DIVVZk4g.js">
   <link rel="modulepreload" crossorigin href="./assets/CanvasPool-jrWYBmrk.js">
-  <link rel="stylesheet" crossorigin href="./assets/index-BBpELxIg.css">
+  <link rel="stylesheet" crossorigin href="./assets/index-D7AEoCX5.css">
 <link rel="manifest" href="./manifest.webmanifest"></head>
 
 <body>
@@ -81,6 +81,12 @@
         </div>
       </div>
     </div> <!-- End ui-overlay -->
+    
+    <!-- [NEW] Mass Feed & Combo Overlays -->
+    <div id="mass-feed-container"></div>
+    <div id="combo-overlay"></div>
+    <div id="combo-text-container"></div>
+    <div id="fps-display"></div>
 
     <!-- Start Menu -->
     <div id="start-menu">
@@ -98,6 +104,7 @@
               <div class="m-xp-mini">
                 <div id="m-xp-fill" class="m-xp-fill"></div>
               </div>
+              <div id="m-xp-text" class="m-xp-text">0 / 100</div>
             </div>
             <!-- 手機版將安裝按鈕移至此處 -->
             <button id="install-pwa-btn-mobile" class="secondary-btn m-install-btn" style="display: none;">安裝應用程式</button>
@@ -122,7 +129,7 @@
         <!-- 電腦版三欄佈局容器 -->
         <div class="menu-container">
           <!-- 左側輔助面板 (紀錄/技能/皮膚) -->
-          <div class="secondary-panel glass" id="overlay-features">
+          <div class="secondary-panel feature-overlay glass" id="overlay-features">
           <button class="close-overlay-btn">&times;</button>
           <!-- 左側 Tab 導航 (移至上方) -->
           <div class="tab-bar">
@@ -233,6 +240,7 @@
               <span id="level-label" class="level-badge">Lv.1</span>
               <div class="xp-bar-container">
                 <div id="xp-bar-fill" class="xp-bar-fill" style="width: 0%"></div>
+                <div id="xp-text" class="xp-text">0 / 100</div>
               </div>
               <span id="xp-percent" class="xp-percent">0%</span>
             </div>
@@ -250,7 +258,7 @@
         </div>
 
         <!-- 右側指南面板 -->
-        <div class="guide-panel glass" id="overlay-guide">
+        <div class="guide-panel feature-overlay glass" id="overlay-guide">
           <button class="close-overlay-btn">&times;</button>
           <div class="guide-section">
             <h3>核心操作</h3>
@@ -353,6 +361,7 @@
             <span id="reward-level-label" class="level-badge">Lv.1</span>
             <div class="xp-bar-container">
               <div id="reward-xp-bar-fill" class="xp-bar-fill" style="width: 0%"></div>
+              <div id="reward-xp-text" class="reward-xp-text">0 / 100</div>
             </div>
           </div>
           <div id="reward-level-up-banner" class="level-up-banner" style="display:none">
