@@ -313,6 +313,9 @@ function startGame() {
   tutorialPauseStart = 0;
   clearWorld();
   killCount = 0;
+  elapsedTime = 0; // [FIX] 重置計時器
+  virusRespawnTimer = 0; // 重置病毒生成
+  boostAccumulator = 0; // 重置加速消耗
   timeScale = 1.0;
 
   for (let i = 0; i < CONFIG.nodeCount; i++) spawnNode();
