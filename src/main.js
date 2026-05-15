@@ -1390,12 +1390,12 @@ function triggerNodePickupVFX(x, y, color) {
   }
 }
 
-function triggerRarePickupVFX(x, y) {
+function triggerRarePickupVFX(x, y, color = 0xFFD700) {
   for (let i = 0; i < 24; i++) {
     const p = new PIXI.Graphics();
     const size = 4 + Math.random() * 6;
     p.poly([0, -size, size / 2, size / 2, -size / 2, size / 2]);
-    p.fill({ color: 0xFFD700, alpha: 1 });
+    p.fill({ color: color, alpha: 1 });
     p.x = x; p.y = y;
     app.stage.addChild(p);
 
@@ -1607,7 +1607,7 @@ function checkCollisions(ent) {
 
         showMassFeed(tier.mass, 'rainbow');
         screenShake = Math.max(screenShake, p.tierKey === 'iridescent' ? 100 : 60);
-        triggerRarePickupVFX(p.body.position.x, p.body.position.y);
+        triggerRarePickupVFX(p.body.position.x, p.body.position.y, tier.color);
 
         p.body.isDestroyed = true;
         Matter.World.remove(world, p.body);
