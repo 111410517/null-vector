@@ -2606,7 +2606,7 @@ body.hide-cursor, body.hide-cursor * {
   font-size: 2.2rem;
   text-shadow: 0 4px 12px rgba(0,0,0,0.4);
   animation: massPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-  opacity: 0;
+  opacity: 1; /* 改為 1，避免動畫覆蓋後消失 */
   white-space: nowrap;
 }
 
@@ -2621,7 +2621,10 @@ body.hide-cursor, body.hide-cursor * {
 }
 
 .mass-feed-item.pulse {
-  animation: massPulse 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  /* 使用單獨屬性避免覆蓋其他動畫效果 */
+  animation-name: massPulse;
+  animation-duration: 0.3s;
+  animation-timing-function: cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 @keyframes massPulse {
